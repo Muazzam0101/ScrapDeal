@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme';
 import { StatusBadge } from './StatusBadge';
+import { Transaction } from '../types';
 
 interface TransactionCardProps {
-  materialName: string;
-  weight: string;
-  amount: string;
-  date: string;
+  transaction?: Transaction;
+  materialName?: string;
+  weight?: string;
+  amount?: string;
+  date?: string;
   counterpart?: string;
   paymentMethod?: 'cash' | 'upi';
   isCompleted?: boolean;
@@ -16,6 +18,7 @@ interface TransactionCardProps {
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
+  transaction,
   materialName,
   weight,
   amount,
@@ -25,6 +28,13 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   isCompleted = true,
   onPress,
 }) => {
+  const displayMaterial = materialName || transaction?.materialName || 'Scrap Material';
+  const displayWeight = weight || (transaction ? `${transaction.weightKg} kg` : '');
+  const displayAmount = amount || (transaction ? `₹ ${transaction.totalAmount.toLocaleString('en-IN')}` : '');
+  const displayDate = date || (transaction ? new Date(transaction.date).toLocaleDateString() : '');
+  const displayPaymentMethod = (transaction ? transaction.paymentMethod : paymentMethod) || 'cash';
+  const displayCompleted = transaction ? transaction.paymentStatus === 'completed' : isCompleted;
+
   return (
     <TouchableOpacity
       style={[styles.card, shadows.sm]}
@@ -34,26 +44,26 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     >
       <View style={styles.leftIconWrapper}>
         <MaterialCommunityIcons
-          name={paymentMethod === 'cash' ? 'cash' : 'cellphone'}
+          name={displayPaymentMethod === 'cash' ? 'cash' : 'cellphone'}
           size={26}
           color={colors.primary}
         />
       </View>
 
       <View style={styles.details}>
-        <Text style={styles.title}>{materialName}</Text>
+        <Text style={styles.title}>{displayMaterial}</Text>
         <Text style={styles.subText}>
-          {weight} {counterpart ? `• ${counterpart}` : ''}
+          {displayWeight} {counterpart ? `• ${counterpart}` : ''}
         </Text>
-        <Text style={styles.dateText}>{date}</Text>
+        <Text style={styles.dateText}>{displayDate}</Text>
       </View>
 
       <View style={styles.rightContainer}>
-        <Text style={styles.amount}>{amount}</Text>
+        <Text style={styles.amount}>{displayAmount}</Text>
         <StatusBadge
-          label={isCompleted ? 'Completed' : 'Pending'}
-          variant={isCompleted ? 'success' : 'warning'}
-          icon={isCompleted ? 'checkmark-circle' : 'time-outline'}
+          label={displayCompleted ? 'Completed' : 'Pending'}
+          variant={displayCompleted ? 'success' : 'warning'}
+          icon={displayCompleted ? 'checkmark-circle' : 'time-outline'}
         />
       </View>
     </TouchableOpacity>

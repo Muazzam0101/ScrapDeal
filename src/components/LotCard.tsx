@@ -2,11 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme';
+import { MaterialLot } from '../types';
 
 interface LotCardProps {
+  lot?: MaterialLot;
   lotId?: string;
-  materialName: string;
-  weight: string;
+  materialName?: string;
+  weight?: string;
   distance?: string;
   location?: string;
   estimatedValue?: string;
@@ -17,6 +19,7 @@ interface LotCardProps {
 }
 
 export const LotCard: React.FC<LotCardProps> = ({
+  lot,
   lotId,
   materialName,
   weight,
@@ -28,6 +31,12 @@ export const LotCard: React.FC<LotCardProps> = ({
   onAction,
   onPress,
 }) => {
+  const displayMaterial = materialName || (lot ? lot.categoryId.toUpperCase() : 'Scrap');
+  const displayWeight = weight || (lot ? `${lot.weightKg} kg` : '');
+  const displayLocation = location || (lot ? `${lot.locationCity || 'पुणे'}, ${lot.locationArea || 'महाराष्ट्र'}` : '');
+  const displayTime = timestamp || (lot ? new Date(lot.createdAt).toLocaleDateString() : '');
+  const displayValue = estimatedValue || (lot?.agreedTotalAmount ? `₹ ${lot.agreedTotalAmount.toLocaleString('en-IN')}` : undefined);
+
   return (
     <TouchableOpacity
       style={[styles.card, shadows.sm]}
@@ -40,29 +49,35 @@ export const LotCard: React.FC<LotCardProps> = ({
         </View>
 
         <View style={styles.infoContainer}>
-          <Text style={styles.materialName}>{materialName}</Text>
-          <Text style={styles.weightText}>{weight}</Text>
+          <Text style={styles.materialName}>{displayMaterial}</Text>
+          <Text style={styles.weightText}>{displayWeight}</Text>
 
-          {(distance || location) && (
+          {(distance || displayLocation) && (
             <View style={styles.metaRow}>
               <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
               <Text style={styles.metaText}>
-                {[distance, location].filter(Boolean).join(' • ')}
+                {[distance, displayLocation].filter(Boolean).join(' • ')}
               </Text>
             </View>
           )}
 
-          {timestamp && (
+          {displayTime && (
             <View style={styles.metaRow}>
               <Ionicons name="time-outline" size={13} color={colors.textMuted} />
-              <Text style={styles.metaTextMuted}>{timestamp}</Text>
+              <Text style={styles.metaTextMuted}>{displayTime}</Text>
+            </View>
+          )}
+
+          {lot?.syncStatus === 'pending' && (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>ऑफलाइन सुरक्षित (Pending Sync)</Text>
             </View>
           )}
         </View>
 
         <View style={styles.rightColumn}>
-          {estimatedValue && (
-            <Text style={styles.valueText}>{estimatedValue}</Text>
+          {displayValue && (
+            <Text style={styles.valueText}>{displayValue}</Text>
           )}
 
           {onAction && (
@@ -128,6 +143,19 @@ const styles = StyleSheet.create({
   metaTextMuted: {
     ...typography.bodySmall,
     color: colors.textMuted,
+  },
+  pendingBadge: {
+    marginTop: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  pendingBadgeText: {
+    ...typography.badge,
+    fontSize: 9,
+    color: '#B45309',
   },
   rightColumn: {
     alignItems: 'flex-end',

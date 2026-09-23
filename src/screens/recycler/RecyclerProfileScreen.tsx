@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  TouchableOpacity,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { AppHeader } from '../../components/AppHeader';
 import { VerificationBadge } from '../../components/VerificationBadge';
 import { LanguageSelector } from '../../components/LanguageSelector';
@@ -18,9 +18,27 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 
 export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { t } = useLanguage();
-  const { switchRole } = useRole();
+  const { switchRole: switchContextRole } = useRole();
+  const { currentUser, switchRole: switchAuthRole } = useAuthStore();
 
-  const acceptedMaterials = ['PCB', 'Wires/Cables', 'Battery', 'LCD', 'CRT', 'Motors', 'Mixed Plastic'];
+  const handleRoleSwitch = () => {
+    switchContextRole();
+    switchAuthRole();
+  };
+
+  const firmName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || 'Green Earth Recycling';
+  const contactName = (currentUser as any)?.contactName || (currentUser as any)?.contactPerson || 'व्यवस्थापक';
+  const phoneNumber = currentUser?.phoneNumber || '+91 98765 43211';
+  const address = (currentUser as any)?.facilityAddress || (currentUser as any)?.address || 'MIDC, Bhosari, Pune, MH';
+  const acceptedMaterials = (currentUser as any)?.acceptedMaterials || [
+    'PCB',
+    'Wires/Cables',
+    'Battery',
+    'LCD',
+    'CRT',
+    'Motors',
+    'Mixed Plastic',
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -39,9 +57,9 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="recycle" size={38} color={colors.primary} />
           </View>
-          <Text style={styles.firmName}>Green Earth Recycling</Text>
+          <Text style={styles.firmName}>{firmName}</Text>
           <VerificationBadge label="Authorized Recycler" size="small" />
-          <Text style={styles.firmId}>Recycler ID: REC-PUNE-0785</Text>
+          <Text style={styles.firmId}>ID: {currentUser?.id || 'REC-PUNE-0785'}</Text>
         </View>
 
         {/* Contact Information Section */}
@@ -49,18 +67,18 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
           <Text style={styles.sectionTitle}>{t('contactInfo')}</Text>
 
           <View style={styles.infoRow}>
-            <Ionicons name="call-outline" size={18} color={colors.primary} />
-            <Text style={styles.infoText}>+91 98765 43210</Text>
+            <Ionicons name="person-outline" size={18} color={colors.primary} />
+            <Text style={styles.infoText}>{contactName}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Ionicons name="mail-outline" size={18} color={colors.primary} />
-            <Text style={styles.infoText}>contact@scrapdeal.in</Text>
+            <Ionicons name="call-outline" size={18} color={colors.primary} />
+            <Text style={styles.infoText}>{phoneNumber}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color={colors.primary} />
-            <Text style={styles.infoText}>MIDC, Bhosari, Pune, MH</Text>
+            <Text style={styles.infoText}>{address}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -73,7 +91,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('materialsAccepted')}</Text>
           <View style={styles.chipsRow}>
-            {acceptedMaterials.map((mat) => (
+            {acceptedMaterials.map((mat: string) => (
               <View key={mat} style={styles.chip}>
                 <Text style={styles.chipText}>{mat}</Text>
               </View>
@@ -112,7 +130,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
             title="कबाड़ीवाला मोड में बदलें (Switch to Collector)"
             variant="secondary"
             icon="sync"
-            onPress={switchRole}
+            onPress={handleRoleSwitch}
           />
         </View>
       </ScrollView>

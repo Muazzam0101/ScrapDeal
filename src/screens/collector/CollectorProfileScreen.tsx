@@ -11,6 +11,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { AppHeader } from '../../components/AppHeader';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -23,7 +24,17 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
   navigation,
 }) => {
   const { t } = useLanguage();
-  const { switchRole } = useRole();
+  const { switchRole: switchContextRole } = useRole();
+  const { currentUser, switchRole: switchAuthRole } = useAuthStore();
+
+  const handleRoleSwitch = () => {
+    switchContextRole();
+    switchAuthRole();
+  };
+
+  const displayName = (currentUser as any)?.name || 'कबाड़ी मित्र';
+  const displayLocation = (currentUser as any)?.location || t('collectorLocation');
+  const displayPhone = currentUser?.phoneNumber || '+91 98765 43210';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -42,9 +53,10 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
           <View style={styles.avatarLarge}>
             <MaterialCommunityIcons name="account-hard-hat" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.userName}>कबाड़ी मित्र (Collector)</Text>
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.userPhone}>{displayPhone}</Text>
           <Text style={styles.userLocation}>
-            <Ionicons name="location-sharp" size={14} color={colors.primary} /> {t('collectorLocation')}
+            <Ionicons name="location-sharp" size={14} color={colors.primary} /> {displayLocation}
           </Text>
 
           <View style={styles.verificationTag}>
@@ -69,7 +81,7 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
             title="Recycler मोड में बदलें (Switch to Recycler)"
             icon="sync"
             variant="secondary"
-            onPress={switchRole}
+            onPress={handleRoleSwitch}
             style={styles.switchBtn}
           />
         </View>
@@ -135,10 +147,16 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.text,
   },
+  userPhone: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: 2,
+    fontWeight: '600',
+  },
   userLocation: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
   verificationTag: {
     flexDirection: 'row',

@@ -19,3 +19,5 @@ export * from './TransactionCard';
 export * from './PaymentMethodCard';
 export * from './HandoverChecklist';
 export * from './OfferCard';
+export * from './OfflineIndicator';
+

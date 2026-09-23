@@ -4,6 +4,9 @@ import { MaterialCategoryId, PickupOption, HandoverChecklistState, PaymentMethod
 interface CreateLotContextType {
   photoCaptured: boolean;
   setPhotoCaptured: (captured: boolean) => void;
+  photoUris: string[];
+  setPhotoUris: (uris: string[]) => void;
+  addPhotoUri: (uri: string) => void;
   categoryId: MaterialCategoryId | null;
   setCategoryId: (id: MaterialCategoryId | null) => void;
   weightKg: number;
@@ -17,6 +20,8 @@ interface CreateLotContextType {
   toggleChecklistItem: (key: keyof HandoverChecklistState) => void;
   paymentMethod: PaymentMethod;
   setPaymentMethod: (m: PaymentMethod) => void;
+  createdLotId: string | null;
+  setCreatedLotId: (id: string | null) => void;
   resetLot: () => void;
 }
 
@@ -31,12 +36,19 @@ const CreateLotContext = createContext<CreateLotContextType | undefined>(undefin
 
 export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [photoCaptured, setPhotoCaptured] = useState<boolean>(true);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState<MaterialCategoryId | null>('pcb');
   const [weightKg, setWeightKg] = useState<number>(15);
   const [ratePerKg, setRatePerKg] = useState<number>(280);
   const [pickupOption, setPickupOption] = useState<PickupOption>('collector_drop');
   const [checklist, setChecklist] = useState<HandoverChecklistState>(defaultChecklist);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [createdLotId, setCreatedLotId] = useState<string | null>(null);
+
+  const addPhotoUri = (uri: string) => {
+    setPhotoUris((prev) => [...prev, uri]);
+    setPhotoCaptured(true);
+  };
 
   const toggleChecklistItem = (key: keyof HandoverChecklistState) => {
     setChecklist((prev) => ({
@@ -47,12 +59,14 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const resetLot = () => {
     setPhotoCaptured(true);
+    setPhotoUris([]);
     setCategoryId('pcb');
     setWeightKg(15);
     setRatePerKg(280);
     setPickupOption('collector_drop');
     setChecklist(defaultChecklist);
     setPaymentMethod('cash');
+    setCreatedLotId(null);
   };
 
   return (
@@ -60,6 +74,9 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
       value={{
         photoCaptured,
         setPhotoCaptured,
+        photoUris,
+        setPhotoUris,
+        addPhotoUri,
         categoryId,
         setCategoryId,
         weightKg,
@@ -73,6 +90,8 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
         toggleChecklistItem,
         paymentMethod,
         setPaymentMethod,
+        createdLotId,
+        setCreatedLotId,
         resetLot,
       }}
     >

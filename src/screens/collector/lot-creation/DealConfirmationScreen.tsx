@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCreateLot } from '../../../context/CreateLotContext';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useLotStore } from '../../../store/useLotStore';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 
@@ -23,13 +25,33 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
   route,
 }) => {
   const { t } = useLanguage();
-  const { categoryId, weightKg, ratePerKg } = useCreateLot();
+  const { categoryId, weightKg, ratePerKg, photoUris, pickupOption, setCreatedLotId } = useCreateLot();
+  const { currentUser } = useAuthStore();
+  const { createLot } = useLotStore();
 
-  // Calculate live amount from current interactive user input
   const totalCalculated = Math.round(weightKg * (ratePerKg || 280));
 
-  const handleConfirmDeal = () => {
-    navigation.navigate('Handover', { lotId: 'LOT-CURRENT' });
+  const handleConfirmDeal = async () => {
+    try {
+      const collectorId = currentUser?.id || 'COLLECTOR-LOCAL';
+      const lot = await createLot({
+        collectorId,
+        categoryId: categoryId || 'pcb',
+        weightKg,
+        photos: photoUris.length > 0 ? photoUris : [`file:///scrapdeal_photo_${Date.now()}.jpg`],
+        ratePerKg: ratePerKg || 280,
+        pickupOption: pickupOption || 'collector_drop',
+        status: 'deal_locked',
+      });
+
+      setCreatedLotId(lot.localId);
+      navigation.navigate('Handover', { lotId: lot.localId });
+    } catch (e) {
+      console.warn('[DealConfirmation] Error creating lot, advancing with fallback ID:', e);
+      const fallbackId = `LOT-${Date.now()}`;
+      setCreatedLotId(fallbackId);
+      navigation.navigate('Handover', { lotId: fallbackId });
+    }
   };
 
   return (

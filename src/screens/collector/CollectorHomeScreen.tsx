@@ -10,6 +10,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { AppHeader } from '../../components/AppHeader';
 
 interface CollectorHomeScreenProps {
@@ -18,6 +19,8 @@ interface CollectorHomeScreenProps {
 
 export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
+  const { currentUser } = useAuthStore();
+  const userName = (currentUser as any)?.name || 'नमस्ते!';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -37,7 +40,7 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
             <MaterialCommunityIcons name="account-hard-hat" size={32} color={colors.primary} />
           </View>
           <View style={styles.greetingTextContainer}>
-            <Text style={styles.greetingTitle}>नमस्ते!</Text>
+            <Text style={styles.greetingTitle}>नमस्ते, {userName}!</Text>
             <Text style={styles.greetingSub}>{t('greetingCollector')}</Text>
           </View>
         </View>

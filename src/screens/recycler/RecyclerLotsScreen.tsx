@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,16 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useLotStore } from '../../store/useLotStore';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
+import { LotCard } from '../../components/LotCard';
 
 interface RecyclerLotsScreenProps {
   navigation: any;
@@ -20,14 +23,41 @@ interface RecyclerLotsScreenProps {
 
 export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
+  const { availableLots, fetchAvailableLots, isLoading, error } = useLotStore();
   const [activeTab, setActiveTab] = useState<'new' | 'offered' | 'accepted'>('new');
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchAvailableLots();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAvailableLots();
+    setRefreshing(false);
+  };
 
   const tabs = [
     { key: 'new', label: t('tabNewLots') },
     { key: 'offered', label: t('tabOffersGiven') },
     { key: 'accepted', label: t('tabAccepted') },
   ];
+
+  const filteredLots = availableLots.filter((lot) => {
+    if (activeTab === 'new') {
+      return lot.status === 'created' || lot.status === 'ready' || lot.status === 'matching';
+    } else if (activeTab === 'offered') {
+      return lot.status === 'offered';
+    } else {
+      return (
+        lot.status === 'deal_locked' ||
+        lot.status === 'accepted' ||
+        lot.status === 'handover_pending' ||
+        lot.status === 'paid' ||
+        lot.status === 'completed'
+      );
+    }
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,6 +70,9 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Tabs */}
         <View style={styles.tabsRow}>
@@ -65,49 +98,35 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
           })}
         </View>
 
-        {/* State Toggle for UI Review */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Real Dynamic States */}
+        {isLoading && filteredLots.length === 0 && (
+          <LoadingState message="आसपास के नए लॉट खोजे जा रहे हैं..." />
+        )}
 
-        {/* Dynamic Empty / Loading / Error States (Strict No Fake Lots) */}
-        {viewState === 'empty' && (
+        {error && filteredLots.length === 0 && (
+          <ErrorState message="लॉट लोड करने में विफल।" onRetry={fetchAvailableLots} />
+        )}
+
+        {!isLoading && filteredLots.length === 0 && (
           <EmptyState
             icon="cube-outline"
             title={t('noNewLots')}
             description={t('noNewLotsDesc')}
-            actionTitle="लॉट विवरण स्क्रीन देखें (Lot Details)"
-            onActionPress={() => navigation.navigate('RecyclerLotDetails', { isSamplePreview: true })}
+            actionTitle="रिफ्रेश करें (Refresh)"
+            onActionPress={fetchAvailableLots}
           />
         )}
 
-        {viewState === 'loading' && (
-          <LoadingState message="आसपास के नए लॉट खोजे जा रहे हैं..." />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="लॉट लोड करने में विफल।"
-            onRetry={() => setViewState('empty')}
-          />
+        {filteredLots.length > 0 && (
+          <View style={styles.lotsList}>
+            {filteredLots.map((lot) => (
+              <LotCard
+                key={lot.localId || lot.id}
+                lot={lot}
+                onPress={() => navigation.navigate('RecyclerLotDetails', { lot })}
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -150,37 +169,7 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: colors.textLight,
   },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
-    color: colors.textLight,
+  lotsList: {
+    gap: spacing.md,
   },
 });

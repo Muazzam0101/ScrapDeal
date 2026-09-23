@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,20 +6,54 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { transactionRepository } from '../../services/sqlite/repositories/transactionRepository';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
+import { TransactionCard } from '../../components/TransactionCard';
+import { Transaction } from '../../types';
 
 export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
   navigation,
 }) => {
   const { t } = useLanguage();
+  const { currentUser } = useAuthStore();
   const [activeFilter, setActiveFilter] = useState<'thisMonth' | 'lastMonth' | 'all'>('thisMonth');
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  const recyclerId = currentUser?.id || 'RECYCLER-GREEN-EARTH';
+
+  const loadData = async () => {
+    try {
+      setError(null);
+      const list = await transactionRepository.getTransactionsForUser(recyclerId, 'recycler');
+      setTransactions(list);
+    } catch (e: any) {
+      console.warn('[RecyclerTransactions] Error loading transactions:', e);
+      setError('लेन-देन लोड करने में असमर्थ।');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [recyclerId]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const filters = [
     { key: 'thisMonth', label: t('filterThisMonth') },
@@ -39,6 +73,9 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Filters Row */}
         <View style={styles.filtersRow}>
@@ -64,31 +101,16 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
           })}
         </View>
 
-        {/* State Toggle for UI Review */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Real Dynamic States */}
+        {isLoading && transactions.length === 0 && (
+          <LoadingState message="लेन-देन इतिहास लोड हो रहा है..." />
+        )}
 
-        {/* Dynamic Empty / Loading / Error States (Strict No Fake Transactions) */}
-        {viewState === 'empty' && (
+        {error && transactions.length === 0 && (
+          <ErrorState message={error} onRetry={loadData} />
+        )}
+
+        {!isLoading && transactions.length === 0 && (
           <EmptyState
             icon="receipt-outline"
             title="अभी कोई transaction नहीं है"
@@ -98,15 +120,12 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
           />
         )}
 
-        {viewState === 'loading' && (
-          <LoadingState message="लेन-देन इतिहास लोड हो रहा है..." />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="लेन-देन लोड करने में असमर्थ।"
-            onRetry={() => setViewState('empty')}
-          />
+        {transactions.length > 0 && (
+          <View style={styles.txList}>
+            {transactions.map((tx) => (
+              <TransactionCard key={tx.localId || tx.id} transaction={tx} />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -150,37 +169,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontWeight: '700',
   },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
-    color: colors.textLight,
+  txList: {
+    gap: spacing.md,
   },
 });

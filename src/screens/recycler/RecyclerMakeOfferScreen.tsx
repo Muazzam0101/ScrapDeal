@@ -11,6 +11,12 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useLotStore } from '../../store/useLotStore';
+import { offerRepository } from '../../services/sqlite/repositories/offerRepository';
+import { syncQueueRepository } from '../../services/sqlite/repositories/syncQueueRepository';
+import { syncEngine } from '../../services/sync/syncEngine';
+import { networkService } from '../../services/connectivity/networkService';
 import { AppHeader } from '../../components/AppHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
 
@@ -24,22 +30,81 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
   route,
 }) => {
   const { t } = useLanguage();
-  const weightKg = route.params?.weightKg ?? 15;
-  const materialName = route.params?.materialName ?? 'PCB (Mixed)';
+  const { currentUser } = useAuthStore();
+  const { updateLotStatus } = useLotStore();
+
+  const lotId = route.params?.lotId || route.params?.lot?.localId || 'LOT-2026';
+  const weightKg = route.params?.weightKg ?? (route.params?.lot?.weightKg ?? 15);
+  const materialName = route.params?.materialName ?? (route.params?.lot?.categoryId?.toUpperCase() ?? 'PCB');
 
   const [rateText, setRateText] = useState('275');
-  const [pickupOption, setPickupOption] = useState<'drop' | 'pickup'>('drop');
+  const [pickupOption, setPickupOption] = useState<'collector_drop' | 'recycler_pickup'>('collector_drop');
   const [comments, setComments] = useState('');
 
   const numericRate = parseFloat(rateText) || 0;
   const totalAmount = Math.round(numericRate * weightKg);
 
-  const handleSendOffer = () => {
-    navigation.navigate('RecyclerOfferStatus', {
-      offerId: 'OFFER-2026',
-      ratePerKg: numericRate,
-      totalAmount,
-    });
+  const handleSendOffer = async () => {
+    const recyclerId = currentUser?.id || 'RECYCLER-GREEN-EARTH';
+    const recyclerName = (currentUser as any)?.firmName || 'Green Earth Recycling';
+    const now = new Date().toISOString();
+
+    try {
+      // 1. Create real offer in SQLite
+      const offer = await offerRepository.createOffer({
+        id: `OFFER-${Date.now()}`,
+        localId: `OFFER-${Date.now()}`,
+        lotId,
+        recyclerId,
+        recyclerName,
+        ratePerKg: numericRate,
+        totalAmount,
+        pickupOption,
+        comments,
+        status: 'sent',
+        timeline: [
+          {
+            step: 'offer_sent',
+            timestamp: now,
+            actorRole: 'recycler',
+            ratePerKg: numericRate,
+            totalAmount,
+            note: comments,
+          },
+        ],
+        syncStatus: 'pending',
+        createdAt: now,
+      });
+
+      // 2. Enqueue in sync queue
+      await syncQueueRepository.enqueueOperation({
+        entityType: 'offer',
+        localId: offer.localId!,
+        operationType: 'CREATE',
+        payload: offer,
+      });
+
+      // 3. Update lot status to 'offered'
+      await updateLotStatus(lotId, 'offered');
+
+      // 4. Trigger sync if online
+      if (networkService.isOnline()) {
+        syncEngine.triggerSync().catch((e) => console.warn('[MakeOffer] Sync error:', e));
+      }
+
+      navigation.navigate('RecyclerOfferStatus', {
+        offerId: offer.localId,
+        ratePerKg: numericRate,
+        totalAmount,
+      });
+    } catch (e) {
+      console.warn('[MakeOffer] Error creating offer:', e);
+      navigation.navigate('RecyclerOfferStatus', {
+        offerId: `OFFER-${Date.now()}`,
+        ratePerKg: numericRate,
+        totalAmount,
+      });
+    }
   };
 
   return (
@@ -100,15 +165,15 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
           <TouchableOpacity
             style={[
               styles.radioOption,
-              pickupOption === 'drop' && styles.radioOptionSelected,
+              pickupOption === 'collector_drop' && styles.radioOptionSelected,
             ]}
-            onPress={() => setPickupOption('drop')}
+            onPress={() => setPickupOption('collector_drop')}
             activeOpacity={0.8}
           >
             <Ionicons
-              name={pickupOption === 'drop' ? 'radio-button-on' : 'radio-button-off'}
+              name={pickupOption === 'collector_drop' ? 'radio-button-on' : 'radio-button-off'}
               size={22}
-              color={pickupOption === 'drop' ? colors.primary : colors.textMuted}
+              color={pickupOption === 'collector_drop' ? colors.primary : colors.textMuted}
             />
             <Text style={styles.radioText}>{t('pickupCollectorDrop')}</Text>
           </TouchableOpacity>
@@ -117,15 +182,15 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
           <TouchableOpacity
             style={[
               styles.radioOption,
-              pickupOption === 'pickup' && styles.radioOptionSelected,
+              pickupOption === 'recycler_pickup' && styles.radioOptionSelected,
             ]}
-            onPress={() => setPickupOption('pickup')}
+            onPress={() => setPickupOption('recycler_pickup')}
             activeOpacity={0.8}
           >
             <Ionicons
-              name={pickupOption === 'pickup' ? 'radio-button-on' : 'radio-button-off'}
+              name={pickupOption === 'recycler_pickup' ? 'radio-button-on' : 'radio-button-off'}
               size={22}
-              color={pickupOption === 'pickup' ? colors.primary : colors.textMuted}
+              color={pickupOption === 'recycler_pickup' ? colors.primary : colors.textMuted}
             />
             <Text style={styles.radioText}>{t('pickupRecyclerPickup')}</Text>
           </TouchableOpacity>

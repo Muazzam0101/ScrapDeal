@@ -6,18 +6,22 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
-import { LoadingState } from '../../components/LoadingState';
-import { ErrorState } from '../../components/ErrorState';
 
 export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,6 +35,9 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Tabs: Upcoming vs Completed */}
         <View style={styles.tabsRow}>
@@ -63,50 +70,14 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
           </TouchableOpacity>
         </View>
 
-        {/* State Switcher for UI Verification */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Dynamic Empty / Loading / Error States (Strict No Fake Pickups) */}
-        {viewState === 'empty' && (
-          <EmptyState
-            icon="car-outline"
-            title={t('noPickups')}
-            description={t('noPickupsDesc')}
-            actionTitle="पिकअप शेड्यूल चेक करें (Refresh)"
-            onActionPress={() => setViewState('loading')}
-          />
-        )}
-
-        {viewState === 'loading' && (
-          <LoadingState message="पिकअप शेड्यूल लोड हो रहा है..." />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="पिकअप जानकारी प्राप्त करने में असमर्थ।"
-            onRetry={() => setViewState('empty')}
-          />
-        )}
+        {/* Dynamic Empty State (Strict No Fake Pickups) */}
+        <EmptyState
+          icon="car-outline"
+          title={t('noPickups')}
+          description={t('noPickupsDesc')}
+          actionTitle="पिकअप शेड्यूल चेक करें (Refresh)"
+          onActionPress={onRefresh}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -146,39 +117,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tabTextActive: {
-    color: colors.textLight,
-  },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
     color: colors.textLight,
   },
 });

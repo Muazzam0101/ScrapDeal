@@ -10,6 +10,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCreateLot } from '../../../context/CreateLotContext';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useLotStore } from '../../../store/useLotStore';
+import { transactionRepository } from '../../../services/sqlite/repositories/transactionRepository';
+import { syncQueueRepository } from '../../../services/sqlite/repositories/syncQueueRepository';
+import { syncEngine } from '../../../services/sync/syncEngine';
+import { networkService } from '../../../services/connectivity/networkService';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 import { PaymentMethodCard } from '../../../components/PaymentMethodCard';
@@ -21,15 +27,60 @@ interface PaymentScreenProps {
 
 export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { t } = useLanguage();
-  const { paymentMethod, setPaymentMethod, weightKg, ratePerKg } = useCreateLot();
+  const { paymentMethod, setPaymentMethod, weightKg, ratePerKg, categoryId, createdLotId } = useCreateLot();
+  const { currentUser } = useAuthStore();
+  const { updateLotStatus } = useLotStore();
 
   const totalCalculated = Math.round(weightKg * (ratePerKg || 280));
+  const activeLotId = route.params?.lotId || createdLotId || `LOT-${Date.now()}`;
 
-  const handleFinishPayment = () => {
+  const handleFinishPayment = async () => {
+    try {
+      const collectorId = currentUser?.id || 'COLLECTOR-LOCAL';
+      const recyclerId = 'RECYCLER-GREEN-EARTH';
+      const now = new Date().toISOString();
+
+      // 1. Update lot status to 'paid' in SQLite & queue
+      await updateLotStatus(activeLotId, 'paid');
+
+      // 2. Create real transaction in SQLite
+      const tx = await transactionRepository.createTransaction({
+        id: `TX-${Date.now()}`,
+        localId: `TX-${Date.now()}`,
+        transactionNumber: `TRX-${Date.now().toString().slice(-6)}`,
+        lotId: activeLotId,
+        collectorId,
+        recyclerId,
+        materialName: categoryId ? categoryId.toUpperCase() : 'PCB',
+        weightKg,
+        ratePerKg: ratePerKg || 280,
+        totalAmount: totalCalculated,
+        paymentMethod,
+        paymentStatus: 'completed',
+        date: now,
+        syncStatus: 'pending',
+      });
+
+      // 3. Enqueue transaction in sync queue
+      await syncQueueRepository.enqueueOperation({
+        entityType: 'transaction',
+        localId: tx.localId!,
+        operationType: 'CREATE',
+        payload: tx,
+      });
+
+      // 4. Trigger sync if online
+      if (networkService.isOnline()) {
+        syncEngine.triggerSync().catch((e) => console.warn('[PaymentScreen] Sync error:', e));
+      }
+    } catch (e) {
+      console.warn('[PaymentScreen] Error saving transaction:', e);
+    }
+
     navigation.navigate('Success', {
-      lotId: 'LOT-202609',
+      lotId: activeLotId,
       amount: totalCalculated,
-      recyclerName: 'Authorized Recycler',
+      recyclerName: 'Green Earth Recycling',
     });
   };
 

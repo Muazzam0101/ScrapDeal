@@ -11,6 +11,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import { LanguageSelector } from '../../components/LanguageSelector';
 
 interface RoleSelectionScreenProps {
@@ -20,8 +21,14 @@ interface RoleSelectionScreenProps {
 export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
   const { setRole } = useRole();
+  const { selectRoleQuick } = useAuthStore();
 
-  const handleSelectRole = (selectedRole: 'collector' | 'recycler') => {
+  const handleSelectRole = async (selectedRole: 'collector' | 'recycler') => {
+    try {
+      await selectRoleQuick(selectedRole);
+    } catch (e) {
+      console.warn('[RoleSelection] Quick profile error:', e);
+    }
     setRole(selectedRole);
     if (selectedRole === 'collector') {
       navigation.replace('CollectorRoot');

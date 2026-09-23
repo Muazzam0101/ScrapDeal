@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,17 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useLotStore } from '../../store/useLotStore';
 import { AppHeader } from '../../components/AppHeader';
 import { VerificationBadge } from '../../components/VerificationBadge';
 import { EmptyState } from '../../components/EmptyState';
-import { LoadingState } from '../../components/LoadingState';
+import { LotCard } from '../../components/LotCard';
 
 interface RecyclerHomeScreenProps {
   navigation: any;
@@ -21,7 +24,25 @@ interface RecyclerHomeScreenProps {
 
 export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
-  const [viewState, setViewState] = useState<'empty' | 'loading'>('empty');
+  const { currentUser } = useAuthStore();
+  const { availableLots, fetchAvailableLots } = useLotStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchAvailableLots();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAvailableLots();
+    setRefreshing(false);
+  };
+
+  const firmName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || 'Green Earth Recycling';
+  const firmLocation = (currentUser as any)?.city || (currentUser as any)?.facilityAddress || t('collectorLocation');
+
+  const newLotsCount = availableLots.filter((l) => l.status === 'created' || l.status === 'ready' || l.status === 'matching').length;
+  const activeDealsCount = availableLots.filter((l) => l.status === 'offered' || l.status === 'deal_locked' || l.status === 'accepted').length;
 
   const quickActions = [
     {
@@ -79,12 +100,15 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
       <AppHeader
         showBack={false}
         showRoleSwitch={true}
-        location={t('collectorLocation')}
+        location={firmLocation}
       />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Recycler Facility Header Banner */}
         <View style={styles.firmCard}>
@@ -93,28 +117,28 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
               <MaterialCommunityIcons name="recycle" size={28} color={colors.primary} />
             </View>
             <View style={styles.firmInfo}>
-              <Text style={styles.firmName}>Green Earth Recycling</Text>
+              <Text style={styles.firmName}>{firmName}</Text>
               <VerificationBadge label={t('authorizedRecycler')} size="small" />
               <Text style={styles.firmLocation}>
-                <Ionicons name="location-outline" size={13} color={colors.textSecondary} /> {t('collectorLocation')}
+                <Ionicons name="location-outline" size={13} color={colors.textSecondary} /> {firmLocation}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Dashboard Metrics - Aaj ka Sankshipt Vivaran (Clean Zero / No-Data State) */}
+        {/* Dashboard Metrics - Aaj ka Sankshipt Vivaran */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('recyclerSummaryTitle')}</Text>
         </View>
 
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricNumber}>0</Text>
+            <Text style={styles.metricNumber}>{newLotsCount}</Text>
             <Text style={styles.metricLabel}>{t('statNewLots')}</Text>
           </View>
 
           <View style={styles.metricCard}>
-            <Text style={styles.metricNumber}>0</Text>
+            <Text style={styles.metricNumber}>{activeDealsCount}</Text>
             <Text style={styles.metricLabel}>{t('statActiveDeals')}</Text>
           </View>
 
@@ -145,18 +169,30 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
           ))}
         </View>
 
-        {/* New Lots Section with Empty State (Strict No Fake Lots) */}
+        {/* New Lots Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('tabLots')}</Text>
         </View>
 
-        <EmptyState
-          icon="cube-outline"
-          title={t('noNewLots')}
-          description={t('noNewLotsDesc')}
-          actionTitle="लॉट विवरण देखें (Preview Lot Details)"
-          onActionPress={() => navigation.navigate('RecyclerLotDetails', { isSamplePreview: true })}
-        />
+        {availableLots.length === 0 ? (
+          <EmptyState
+            icon="cube-outline"
+            title={t('noNewLots')}
+            description={t('noNewLotsDesc')}
+            actionTitle="लॉट्स रिफ्रेश करें (Refresh)"
+            onActionPress={fetchAvailableLots}
+          />
+        ) : (
+          <View style={styles.lotsList}>
+            {availableLots.slice(0, 3).map((lot) => (
+              <LotCard
+                key={lot.localId || lot.id}
+                lot={lot}
+                onPress={() => navigation.navigate('RecyclerLotDetails', { lot })}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -268,5 +304,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',
+  },
+  lotsList: {
+    gap: spacing.md,
   },
 });

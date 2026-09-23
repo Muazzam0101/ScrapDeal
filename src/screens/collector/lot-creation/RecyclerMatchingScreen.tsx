@@ -6,6 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
@@ -15,8 +16,6 @@ import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 import { SecondaryButton } from '../../../components/SecondaryButton';
 import { EmptyState } from '../../../components/EmptyState';
-import { LoadingState } from '../../../components/LoadingState';
-import { ErrorState } from '../../../components/ErrorState';
 import { AudioSpeakerButton } from '../../../components/AudioSpeakerButton';
 
 interface RecyclerMatchingScreenProps {
@@ -30,7 +29,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
 }) => {
   const { t } = useLanguage();
   const { categoryId, weightKg } = useCreateLot();
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleContinueToDeal = () => {
     navigation.navigate('DealConfirmation', {
@@ -38,6 +37,11 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
       weightKg,
       ratePerKg: 280,
     });
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 500);
   };
 
   return (
@@ -53,6 +57,9 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Top Location Bar with Audio Button */}
         <View style={styles.locationBar}>
@@ -63,52 +70,14 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
           <AudioSpeakerButton label={t('listen')} size="small" />
         </View>
 
-        {/* State Toggle for UI Inspection */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Main Empty / Loading / Error States (Strict No Fake Data) */}
-        {viewState === 'empty' && (
-          <EmptyState
-            icon="business-outline"
-            title={t('noRecyclersNearby')}
-            description={t('noRecyclersDesc')}
-            actionTitle="पुनः खोजें (Refresh)"
-            onActionPress={() => setViewState('loading')}
-          />
-        )}
-
-        {viewState === 'loading' && (
-          <LoadingState
-            message={t('searchingRecyclers')}
-          />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="GPS या नेटवर्क समस्या के कारण रीसाइक्लर नहीं मिल सके।"
-            onRetry={() => setViewState('empty')}
-          />
-        )}
+        {/* Dynamic Empty State (Strict No Fake Data) */}
+        <EmptyState
+          icon="business-outline"
+          title={t('noRecyclersNearby')}
+          description={t('noRecyclersDesc')}
+          actionTitle="पुनः खोजें (Refresh)"
+          onActionPress={onRefresh}
+        />
 
         {/* Map View Action Button */}
         <SecondaryButton
@@ -159,39 +128,6 @@ const styles = StyleSheet.create({
   locationText: {
     ...typography.h4,
     color: colors.text,
-  },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
-    color: colors.textLight,
   },
   mapButton: {
     marginTop: spacing.md,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,17 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useLotStore } from '../../store/useLotStore';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
+import { LotCard } from '../../components/LotCard';
 
 interface CollectorDealsScreenProps {
   navigation: any;
@@ -22,8 +26,30 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
   navigation,
 }) => {
   const { t } = useLanguage();
+  const { currentUser } = useAuthStore();
+  const { collectorLots, fetchCollectorLots, isLoading, error } = useLotStore();
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const collectorId = currentUser?.id || 'COLLECTOR-LOCAL';
+
+  useEffect(() => {
+    fetchCollectorLots(collectorId);
+  }, [collectorId]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCollectorLots(collectorId);
+    setRefreshing(false);
+  };
+
+  const filteredLots = collectorLots.filter((lot) => {
+    if (activeTab === 'active') {
+      return lot.status !== 'completed' && lot.status !== 'paid' && lot.status !== 'cancelled';
+    } else {
+      return lot.status === 'completed' || lot.status === 'paid';
+    }
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -36,6 +62,9 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Tabs: Active Deals vs Completed */}
         <View style={styles.tabsRow}>
@@ -49,7 +78,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                 activeTab === 'active' && styles.tabTextActive,
               ]}
             >
-              सक्रिय सौदे (Active)
+              सक्रिय सौदे ({collectorLots.filter((l) => l.status !== 'completed' && l.status !== 'paid').length})
             </Text>
           </TouchableOpacity>
 
@@ -63,56 +92,49 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                 activeTab === 'completed' && styles.tabTextActive,
               ]}
             >
-              पूर्ण सौदे (Completed)
+              पूर्ण सौदे ({collectorLots.filter((l) => l.status === 'completed' || l.status === 'paid').length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* State Toggle for UI Review */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Real Dynamic States */}
+        {isLoading && filteredLots.length === 0 && (
+          <LoadingState message="सौदों की स्थिति जांची जा रही है..." />
+        )}
 
-        {/* Dynamic Empty / Loading / Error States (Strict No Fake Data) */}
-        {viewState === 'empty' && (
+        {error && filteredLots.length === 0 && (
+          <ErrorState
+            message="डेटा लोड करने में विफल।"
+            onRetry={() => fetchCollectorLots(collectorId)}
+          />
+        )}
+
+        {!isLoading && filteredLots.length === 0 && (
           <EmptyState
             icon="hand-left-outline"
-            title="अभी कोई सक्रिय सौदा नहीं है"
-            description="जब आप रीसाइक्लर को सामान का ऑफर देंगे, तो वह यहाँ दिखाई देगा।"
+            title={activeTab === 'active' ? "अभी कोई सक्रिय सौदा नहीं है" : "कोई पूर्ण सौदा नहीं है"}
+            description={activeTab === 'active' ? "जब आप रीसाइक्लर को सामान का ऑफर देंगे, तो वह यहाँ दिखाई देगा।" : "पूरे हो चुके लेन-देन यहाँ संग्रहीत होंगे।"}
             actionTitle={t('sellGoodsCTA')}
             onActionPress={() => navigation.navigate('TakePhoto')}
           />
         )}
 
-        {viewState === 'loading' && (
-          <LoadingState
-            message="सौदों की स्थिति जांची जा रही है..."
-          />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="डेटा प्राप्त नहीं हो सका।"
-            onRetry={() => setViewState('empty')}
-          />
+        {filteredLots.length > 0 && (
+          <View style={styles.lotsContainer}>
+            {filteredLots.map((lot) => (
+              <LotCard
+                key={lot.localId || lot.id}
+                lot={lot}
+                onPress={() => {
+                  if (lot.status === 'deal_locked') {
+                    navigation.navigate('Handover', { lotId: lot.localId || lot.id });
+                  } else {
+                    navigation.navigate('DealConfirmation', { lotId: lot.localId || lot.id });
+                  }
+                }}
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -155,37 +177,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontWeight: '700',
   },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
-    color: colors.textLight,
+  lotsContainer: {
+    gap: spacing.md,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,19 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { transactionRepository } from '../../services/sqlite/repositories/transactionRepository';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
+import { TransactionCard } from '../../components/TransactionCard';
+import { Transaction } from '../../types';
 
 interface CollectorEarningsScreenProps {
   navigation: any;
@@ -23,8 +28,46 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
   navigation,
 }) => {
   const { t } = useLanguage();
+  const { currentUser } = useAuthStore();
   const [activeFilter, setActiveFilter] = useState<'thisMonth' | 'lastMonth' | 'all'>('thisMonth');
-  const [viewState, setViewState] = useState<'empty' | 'loading' | 'error'>('empty');
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [earningsSummary, setEarningsSummary] = useState({
+    totalEarnings: 0,
+    totalWeight: 0,
+    transactionCount: 0,
+  });
+
+  const collectorId = currentUser?.id || 'COLLECTOR-LOCAL';
+
+  const loadData = async () => {
+    try {
+      setError(null);
+      const [summary, txList] = await Promise.all([
+        transactionRepository.getCollectorEarningsSummary(collectorId),
+        transactionRepository.getTransactionsForUser(collectorId, 'collector'),
+      ]);
+      setEarningsSummary(summary);
+      setTransactions(txList);
+    } catch (e: any) {
+      console.warn('[CollectorEarnings] Error loading earnings:', e);
+      setError('डेटा प्राप्त नहीं हो सका');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [collectorId]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const filters = [
     { key: 'thisMonth', label: t('filterThisMonth') },
@@ -44,6 +87,9 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         {/* Total Earnings Summary Card */}
         <View style={[styles.earningsBanner, shadows.md]}>
@@ -51,8 +97,12 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
             <Ionicons name="wallet" size={32} color={colors.textLight} />
           </View>
           <Text style={styles.earningsLabel}>{t('totalEarningsLabel')}</Text>
-          <Text style={styles.earningsAmount}>₹ 0</Text>
-          <Text style={styles.earningsSub}>सत्यापित लेन-देन का हिसाब</Text>
+          <Text style={styles.earningsAmount}>
+            ₹ {earningsSummary.totalEarnings.toLocaleString('en-IN')}
+          </Text>
+          <Text style={styles.earningsSub}>
+            {earningsSummary.transactionCount} लेन-देन • {earningsSummary.totalWeight} kg रीसायकल किया
+          </Text>
         </View>
 
         {/* Filter Tabs */}
@@ -79,31 +129,16 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
           })}
         </View>
 
-        {/* State Switcher for UI Verification */}
-        <View style={styles.stateToggleContainer}>
-          <Text style={styles.stateToggleLabel}>UI State Preview:</Text>
-          <View style={styles.stateToggleRow}>
-            {(['empty', 'loading', 'error'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.toggleBtn, viewState === st && styles.toggleBtnActive]}
-                onPress={() => setViewState(st)}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    viewState === st && styles.toggleBtnTextActive,
-                  ]}
-                >
-                  {st.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Real Dynamic States */}
+        {isLoading && transactions.length === 0 && (
+          <LoadingState message="पासबुक व लेन-देन लोड हो रहा है..." />
+        )}
 
-        {/* Dynamic Empty / Loading / Error States (Strict No Fake Transactions) */}
-        {viewState === 'empty' && (
+        {error && transactions.length === 0 && (
+          <ErrorState message={error} onRetry={loadData} />
+        )}
+
+        {!isLoading && transactions.length === 0 && (
           <EmptyState
             icon="receipt-outline"
             title={t('noTransactionsYet')}
@@ -113,17 +148,12 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
           />
         )}
 
-        {viewState === 'loading' && (
-          <LoadingState
-            message="पासबुक व लेन-देन लोड हो रहा है..."
-          />
-        )}
-
-        {viewState === 'error' && (
-          <ErrorState
-            message="लेन-देन लोड करने में असमर्थ। कृपया पुनः प्रयास करें।"
-            onRetry={() => setViewState('empty')}
-          />
+        {transactions.length > 0 && (
+          <View style={styles.txList}>
+            {transactions.map((tx) => (
+              <TransactionCard key={tx.localId || tx.id} transaction={tx} />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -198,37 +228,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontWeight: '700',
   },
-  stateToggleContainer: {
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  stateToggleLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  stateToggleRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  toggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.card,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleBtnText: {
-    ...typography.badge,
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  toggleBtnTextActive: {
-    color: colors.textLight,
+  txList: {
+    gap: spacing.md,
   },
 });

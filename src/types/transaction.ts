@@ -1,3 +1,5 @@
+import { SyncStatus } from './sync';
+
 export type PaymentMethod = 'cash' | 'upi';
 
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -14,6 +16,8 @@ export interface Payment {
 
 export interface Transaction {
   id: string;
+  localId?: string;
+  remoteId?: string;
   transactionNumber: string;
   lotId: string;
   collectorId: string;
@@ -25,4 +29,8 @@ export interface Transaction {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   date: string;
+  syncStatus?: SyncStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  lastSyncedAt?: string;
 }

@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users and Profiles collection
+    // Users can read other user profiles (for deal discovery) but only write their own
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
+      allow delete: if false; // Profiles cannot be arbitrarily deleted by clients
+    }
+
+    // Material Lots collection
+    match /lots/{lotId} {
+      // Authenticated collectors and recyclers can view lots
+      allow read: if isAuthenticated();
+
+      // Only the collector can create their own lot
+      allow create: if isAuthenticated()
+        && request.resource.data.collectorId == request.auth.uid;
+
+      // Lot updates: Collector can update their lot; Recyclers can lock/offer on status fields
+      allow update: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'selectedRecyclerId', 'agreedRatePerKg', 'agreedTotalAmount', 'updatedAt', 'pickupOption'
+        ])
+      );
+
+      // Only lot owner can delete unfinalized lots
+      allow delete: if isAuthenticated()
+        && resource.data.collectorId == request.auth.uid
+        && resource.data.status in ['draft', 'created'];
+    }
+
+    // Offers collection
+    match /offers/{offerId} {
+      allow read: if isAuthenticated();
+
+      // Only the offering recycler can create an offer
+      allow create: if isAuthenticated()
+        && request.resource.data.recyclerId == request.auth.uid;
+
+      // Either party can update offer status (acceptance, counter, rejection)
+      allow update: if isAuthenticated();
+
+      allow delete: if false;
+    }
+
+    // Transactions collection
+    match /transactions/{transactionId} {
+      // Only transaction participants can read
+      allow read: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      // Either participant can record a completed transaction
+      allow create: if isAuthenticated() && (
+        request.resource.data.collectorId == request.auth.uid ||
+        request.resource.data.recyclerId == request.auth.uid
+      );
+
+      allow update, delete: if false;
+    }
+  }
+}
