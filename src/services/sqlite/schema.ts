@@ -86,10 +86,55 @@ export const CREATE_TABLES_SQL = `
     lastSyncedAt TEXT
   );
 
+  -- Deals table
+  CREATE TABLE IF NOT EXISTS deals (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    lotId TEXT NOT NULL,
+    collectorId TEXT NOT NULL,
+    recyclerId TEXT NOT NULL,
+    offerId TEXT NOT NULL,
+    materialCategoryId TEXT NOT NULL,
+    materialName TEXT NOT NULL,
+    agreedRatePerKg REAL NOT NULL,
+    agreedTotalAmount REAL NOT NULL,
+    agreedWeightKg REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'accepted',
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    lastSyncedAt TEXT,
+    syncStatus TEXT DEFAULT 'pending'
+  );
+
+  -- Handovers table
+  CREATE TABLE IF NOT EXISTS handovers (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    dealId TEXT NOT NULL,
+    lotId TEXT NOT NULL,
+    collectorId TEXT NOT NULL,
+    recyclerId TEXT NOT NULL,
+    actualWeightKg REAL,
+    photoUri TEXT,
+    notes TEXT,
+    collectorConfirmed INTEGER NOT NULL DEFAULT 0,
+    recyclerConfirmed INTEGER NOT NULL DEFAULT 0,
+    collectorConfirmedAt TEXT,
+    recyclerConfirmedAt TEXT,
+    latitude REAL,
+    longitude REAL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    completedAt TEXT,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    lastSyncedAt TEXT,
+    syncStatus TEXT DEFAULT 'pending'
+  );
+
   -- Offline Sync Queue table
   CREATE TABLE IF NOT EXISTS sync_queue (
     id TEXT PRIMARY KEY,
-    entityType TEXT NOT NULL, -- 'material_lot', 'user', 'offer', 'transaction', 'photo'
+    entityType TEXT NOT NULL, -- 'material_lot', 'user', 'offer', 'transaction', 'deal', 'handover', 'photo'
     localId TEXT NOT NULL,
     remoteId TEXT,
     operationType TEXT NOT NULL, -- 'CREATE', 'UPDATE', 'DELETE'
@@ -106,6 +151,10 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_lots_status ON material_lots(status);
   CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
   CREATE INDEX IF NOT EXISTS idx_offers_lot ON offers(lotId);
+  CREATE INDEX IF NOT EXISTS idx_deals_collector ON deals(collectorId);
+  CREATE INDEX IF NOT EXISTS idx_deals_recycler ON deals(recyclerId);
+  CREATE INDEX IF NOT EXISTS idx_deals_lot ON deals(lotId);
+  CREATE INDEX IF NOT EXISTS idx_handovers_deal ON handovers(dealId);
   CREATE INDEX IF NOT EXISTS idx_tx_collector ON transactions(collectorId);
   CREATE INDEX IF NOT EXISTS idx_tx_recycler ON transactions(recyclerId);
 `;

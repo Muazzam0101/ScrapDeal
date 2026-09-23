@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { offerRepository } from '../../services/sqlite/repositories/offerRepository';
+import { Offer } from '../../types';
 import { AppHeader } from '../../components/AppHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryButton } from '../../components/SecondaryButton';
-import { OfferCard } from '../../components/OfferCard';
 
 interface RecyclerOfferStatusScreenProps {
   navigation: any;
@@ -25,15 +26,29 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
   route,
 }) => {
   const { t } = useLanguage();
-  const [currentStepIndex, setCurrentStepIndex] = useState(4); // 4 = Deal Accepted
+  const offerId = route.params?.offerId;
+  const passedRate = route.params?.ratePerKg;
+  const passedTotal = route.params?.totalAmount;
 
-  const timelineSteps = [
-    { key: 'sent', title: t('statusOfferSent'), role: 'recycler' as const, rate: 275, amount: 4125 },
-    { key: 'viewed', title: t('statusViewed'), role: 'system' as const, rate: 275, amount: 4125 },
-    { key: 'counter', title: t('statusCounterOffer'), role: 'collector' as const, rate: 280, amount: 4200 },
-    { key: 'final', title: t('statusFinalOffer'), role: 'recycler' as const, rate: 280, amount: 4200 },
-    { key: 'accepted', title: t('statusDealAccepted'), role: 'collector' as const, rate: 280, amount: 4200 },
-  ];
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [loading, setLoading] = useState(Boolean(offerId));
+
+  useEffect(() => {
+    if (offerId) {
+      offerRepository.getOfferById(offerId).then((o) => {
+        if (o) setOffer(o);
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    }
+  }, [offerId]);
+
+  const status = offer?.status || 'pending';
+  const isAccepted = status === 'accepted';
+  const isRejected = status === 'rejected';
+  const isPending = status === 'pending' || status === 'sent' || status === 'viewed';
+
+  const ratePerKg = offer?.ratePerKg ?? passedRate ?? 0;
+  const totalAmount = offer?.totalAmount ?? passedTotal ?? 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -44,84 +59,95 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
         showRoleSwitch={false}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Deal Accepted Green Banner (if current step is accepted) */}
-        {currentStepIndex >= 4 && (
-          <View style={[styles.acceptedBanner, shadows.md]}>
-            <Ionicons name="shield-checkmark" size={40} color={colors.textLight} />
-            <Text style={styles.acceptedTitle}>{t('statusDealAccepted')}</Text>
-            <Text style={styles.acceptedSubtitle}>
-              कलेक्टर ने आपका ऑफर स्वीकार कर लिया है।
-            </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>ऑफर स्थिति जांची जा रही है...</Text>
           </View>
-        )}
+        ) : (
+          <>
+            {/* Status Banner */}
+            {isAccepted && (
+              <View style={[styles.statusBanner, styles.bannerAccepted, shadows.md]}>
+                <Ionicons name="checkmark-circle" size={44} color="#fff" />
+                <Text style={styles.bannerTitle}>ऑफर स्वीकृत! (Deal Accepted)</Text>
+                <Text style={styles.bannerSubtitle}>
+                  कलेक्टर ने आपका ऑफर स्वीकार कर लिया है। सौदा तय हो गया है।
+                </Text>
+              </View>
+            )}
 
-        {/* Interactive Timeline Stepper */}
-        <View style={styles.timelineSection}>
-          <Text style={styles.sectionTitle}>प्रक्रिया का क्रम (Offer Timeline)</Text>
+            {isPending && (
+              <View style={[styles.statusBanner, styles.bannerPending, shadows.md]}>
+                <Ionicons name="time" size={44} color="#fff" />
+                <Text style={styles.bannerTitle}>ऑफर भेजा गया (Offer Pending)</Text>
+                <Text style={styles.bannerSubtitle}>
+                  आपका ऑफर कलेक्टर के पास समीक्षा के लिए भेज दिया गया है।
+                </Text>
+              </View>
+            )}
 
-          {timelineSteps.map((step, idx) => {
-            const isCompleted = idx <= currentStepIndex;
-            const isLast = idx === timelineSteps.length - 1;
+            {isRejected && (
+              <View style={[styles.statusBanner, styles.bannerRejected, shadows.md]}>
+                <Ionicons name="close-circle" size={44} color="#fff" />
+                <Text style={styles.bannerTitle}>ऑफर अस्वीकृत (Declined)</Text>
+                <Text style={styles.bannerSubtitle}>
+                  कलेक्टर ने किसी अन्य ऑफर को चुना है या यह ऑफर निरस्त कर दिया है।
+                </Text>
+              </View>
+            )}
 
-            return (
-              <View key={step.key} style={styles.timelineItem}>
-                {/* Indicator Circle & Vertical Connector */}
-                <View style={styles.indicatorColumn}>
-                  <View
+            {/* Offer Details Card */}
+            <View style={styles.detailsCard}>
+              <Text style={styles.detailsHeading}>प्रस्तावित विवरण (Offer Details)</Text>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>प्रस्तावित दर (Offered Rate):</Text>
+                <Text style={styles.detailValue}>₹{ratePerKg} / किग्रा</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>कुल प्रस्तावित राशि (Total Amount):</Text>
+                <Text style={styles.detailTotal}>₹{totalAmount}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>वर्तमान स्थिति (Current Status):</Text>
+                <View
+                  style={[
+                    styles.statusPill,
+                    isAccepted ? styles.pillAccepted : isRejected ? styles.pillRejected : styles.pillPending,
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.stepCircle,
-                      isCompleted && styles.stepCircleCompleted,
+                      styles.statusPillText,
+                      isAccepted ? styles.textAccepted : isRejected ? styles.textRejected : styles.textPending,
                     ]}
                   >
-                    {isCompleted ? (
-                      <Ionicons name="checkmark" size={14} color={colors.textLight} />
-                    ) : (
-                      <Text style={styles.stepNum}>{idx + 1}</Text>
-                    )}
-                  </View>
-                  {!isLast && (
-                    <View
-                      style={[
-                        styles.connectorLine,
-                        idx < currentStepIndex && styles.connectorLineCompleted,
-                      ]}
-                    />
-                  )}
-                </View>
-
-                {/* Step Content Card */}
-                <View style={styles.stepContent}>
-                  <OfferCard
-                    title={step.title}
-                    ratePerKg={step.rate}
-                    totalAmount={step.amount}
-                    actorRole={step.role}
-                    isAccepted={idx === 4}
-                  />
+                    {isAccepted ? 'स्वीकृत (Accepted)' : isRejected ? 'अस्वीकृत (Rejected)' : 'लंबित (Pending)'}
+                  </Text>
                 </View>
               </View>
-            );
-          })}
-        </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
-      {/* Sticky Bottom Actions */}
+      {/* Action Buttons */}
       <View style={styles.bottomBar}>
-        <PrimaryButton
-          title={t('scheduleHandoverCTA')}
-          icon="calendar-outline"
-          onPress={() => navigation.navigate('RecyclerPickup')}
-        />
-        <SecondaryButton
-          title={t('chatWhatsAppCTA')}
-          icon="logo-whatsapp"
-          onPress={() => {}}
-          style={styles.whatsappBtn}
-        />
+        {isAccepted ? (
+          <PrimaryButton
+            title="पिकअप शेड्यूल देखें (View Pickups) →"
+            onPress={() => navigation.navigate('RecyclerPickup')}
+          />
+        ) : (
+          <SecondaryButton
+            title="अन्य उपलब्ध लॉट देखें (Browse Lots)"
+            onPress={() => navigation.navigate('RecyclerRoot', { screen: 'RecyclerLots' })}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -137,78 +163,105 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.huge,
   },
-  acceptedBanner: {
-    backgroundColor: colors.primary,
+  loadingBox: {
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+  },
+  statusBanner: {
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: spacing.xl,
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  acceptedTitle: {
-    ...typography.h2,
-    color: colors.textLight,
-    marginTop: spacing.xs,
+  bannerAccepted: {
+    backgroundColor: '#00875A',
   },
-  acceptedSubtitle: {
-    ...typography.bodyMedium,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 2,
+  bannerPending: {
+    backgroundColor: '#D97706',
+  },
+  bannerRejected: {
+    backgroundColor: '#DC2626',
+  },
+  bannerTitle: {
+    ...typography.h2,
+    color: '#fff',
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
-  timelineSection: {
-    marginTop: spacing.xs,
+  bannerSubtitle: {
+    ...typography.bodySecondary,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  sectionTitle: {
-    ...typography.h4,
-    color: colors.text,
+  detailsCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  detailsHeading: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
     marginBottom: spacing.md,
   },
-  timelineItem: {
+  detailRow: {
     flexDirection: 'row',
-  },
-  indicatorColumn: {
+    justifyContent: 'space-between',
     alignItems: 'center',
-    width: 32,
-    marginRight: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
   },
-  stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  stepCircleCompleted: {
-    backgroundColor: colors.primary,
-  },
-  stepNum: {
-    ...typography.badge,
-    fontSize: 10,
+  detailLabel: {
+    ...typography.caption,
     color: colors.textSecondary,
   },
-  connectorLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: colors.borderLight,
-    marginVertical: 4,
+  detailValue: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
   },
-  connectorLineCompleted: {
-    backgroundColor: colors.primary,
+  detailTotal: {
+    ...typography.h3,
+    color: colors.primary,
   },
-  stepContent: {
-    flex: 1,
-    marginBottom: spacing.xs,
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+  },
+  pillPending: {
+    backgroundColor: '#FEF3C7',
+  },
+  pillAccepted: {
+    backgroundColor: '#E3FCEF',
+  },
+  pillRejected: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  textPending: {
+    color: '#D97706',
+  },
+  textAccepted: {
+    color: '#00875A',
+  },
+  textRejected: {
+    color: '#DC2626',
   },
   bottomBar: {
     padding: spacing.lg,
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    gap: spacing.sm,
-  },
-  whatsappBtn: {
-    borderColor: '#25D366',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,50 @@ import {
   SafeAreaView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { dealRepository } from '../../services/sqlite/repositories/dealRepository';
+import { Deal } from '../../types';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 
 export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { t } = useLanguage();
+  const { currentUser } = useAuthStore();
+  const recyclerId = currentUser?.id || 'RECYCLER-LOCAL';
+
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const loadDeals = async () => {
+    try {
+      const allDeals = await dealRepository.getDealsForRecycler(recyclerId);
+      setDeals(allDeals);
+    } catch (e) {
+      console.warn('[RecyclerPickup] Load error:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDeals();
+  }, [recyclerId]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 500);
+    loadDeals();
   };
+
+  const upcomingDeals = deals.filter((d) => d.status !== 'completed' && d.status !== 'cancelled');
+  const completedDeals = deals.filter((d) => d.status === 'completed');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -51,7 +80,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                 activeTab === 'upcoming' && styles.tabTextActive,
               ]}
             >
-              आगामी पिकअप (Upcoming 0)
+              आगामी पिकअप ({upcomingDeals.length})
             </Text>
           </TouchableOpacity>
 
@@ -65,19 +94,97 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                 activeTab === 'completed' && styles.tabTextActive,
               ]}
             >
-              पूर्ण पिकअप (Completed 0)
+              पूर्ण पिकअप ({completedDeals.length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Dynamic Empty State (Strict No Fake Pickups) */}
-        <EmptyState
-          icon="car-outline"
-          title={t('noPickups')}
-          description={t('noPickupsDesc')}
-          actionTitle="पिकअप शेड्यूल चेक करें (Refresh)"
-          onActionPress={onRefresh}
-        />
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>पिकअप सूची लोड की जा रही है...</Text>
+          </View>
+        ) : activeTab === 'upcoming' ? (
+          upcomingDeals.length === 0 ? (
+            <EmptyState
+              icon="car-outline"
+              title={t('noPickups')}
+              description={t('noPickupsDesc')}
+              actionTitle="पिकअप शेड्यूल चेक करें (Refresh)"
+              onActionPress={loadDeals}
+            />
+          ) : (
+            <View style={styles.dealsList}>
+              {upcomingDeals.map((deal) => (
+                <TouchableOpacity
+                  key={deal.localId || deal.id}
+                  style={styles.dealCard}
+                  onPress={() => navigation.navigate('Handover', { dealId: deal.localId, lotId: deal.lotId })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.materialIconCircle}>
+                      <MaterialCommunityIcons name="chip" size={24} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dealMaterial}>{deal.materialName}</Text>
+                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} किग्रा • दर: ₹{deal.agreedRatePerKg}/किग्रा</Text>
+                    </View>
+                    <Text style={styles.dealTotal}>₹{deal.agreedTotalAmount}</Text>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <View style={styles.statusPill}>
+                      <Text style={styles.statusPillText}>
+                        {deal.status === 'handover_pending' ? 'हैंडओवर प्रतीक्षित' : 'सौदा स्वीकृत'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.actionPrompt}>
+                      <Text style={styles.actionPromptText}>प्राप्ति पुष्टि करें →</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )
+        ) : (
+          completedDeals.length === 0 ? (
+            <EmptyState
+              icon="checkmark-circle-outline"
+              title="कोई पूर्ण पिकअप नहीं है"
+              description="पूर्ण हो चुके पिकअप यहाँ संग्रहीत होंगे।"
+              actionTitle="रिफ्रेश करें (Refresh)"
+              onActionPress={loadDeals}
+            />
+          ) : (
+            <View style={styles.dealsList}>
+              {completedDeals.map((deal) => (
+                <View key={deal.localId || deal.id} style={styles.dealCard}>
+                  <View style={styles.cardTopRow}>
+                    <View style={[styles.materialIconCircle, { backgroundColor: '#E3FCEF' }]}>
+                      <Ionicons name="checkmark-done" size={24} color="#00875A" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dealMaterial}>{deal.materialName}</Text>
+                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} किग्रा • दर: ₹{deal.agreedRatePerKg}/किग्रा</Text>
+                    </View>
+                    <Text style={[styles.dealTotal, { color: '#00875A' }]}>₹{deal.agreedTotalAmount}</Text>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.completedDate}>
+                      पूर्ण तिथि: {new Date(deal.updatedAt).toLocaleDateString('hi-IN')}
+                    </Text>
+                    <View style={[styles.statusPill, { backgroundColor: '#E3FCEF' }]}>
+                      <Text style={[styles.statusPillText, { color: '#00875A' }]}>पूर्ण (Completed)</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,10 +220,88 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...typography.caption,
-    color: colors.textSecondary,
     fontWeight: '700',
+    color: colors.textSecondary,
   },
   tabTextActive: {
     color: colors.textLight,
+  },
+  loadingBox: {
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+  },
+  dealsList: {
+    gap: spacing.md,
+  },
+  dealCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  materialIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E3FCEF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  dealMaterial: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+  },
+  dealWeight: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  dealTotal: {
+    ...typography.h3,
+    color: colors.primary,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  statusPill: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  actionPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionPromptText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  completedDate: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
 });

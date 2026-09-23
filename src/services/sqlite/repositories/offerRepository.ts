@@ -44,6 +44,18 @@ export const offerRepository = {
   },
 
   /**
+   * Retrieves an offer by local or remote ID.
+   */
+  async getOfferById(id: string): Promise<Offer | null> {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<any>(
+      `SELECT * FROM offers WHERE localId = ? OR remoteId = ? LIMIT 1`,
+      [id, id]
+    );
+    return row ? this.mapRowToOffer(row) : null;
+  },
+
+  /**
    * Gets offers for a specific lot.
    */
   async getOffersForLot(lotId: string): Promise<Offer[]> {
@@ -74,9 +86,34 @@ export const offerRepository = {
     const db = await getDatabase();
     const now = new Date().toISOString();
     await db.runAsync(
-      `UPDATE offers SET status = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [status, now, localId]
+      `UPDATE offers SET status = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ? OR remoteId = ?`,
+      [status, now, localId, localId]
     );
+  },
+
+  /**
+   * Marks all other pending offers for a lot as rejected when one offer is accepted.
+   */
+  async rejectOtherOffersForLot(lotId: string, acceptedOfferId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    
+    // Find IDs of other pending offers to return for sync queuing
+    const rows = await db.getAllAsync<any>(
+      `SELECT localId FROM offers WHERE lotId = ? AND localId != ? AND remoteId != ? AND status IN ('sent', 'pending', 'viewed', 'countered')`,
+      [lotId, acceptedOfferId, acceptedOfferId]
+    );
+    const rejectedIds = rows.map((r) => r.localId);
+
+    if (rejectedIds.length > 0) {
+      await db.runAsync(
+        `UPDATE offers SET status = 'rejected', syncStatus = 'pending', updatedAt = ?
+         WHERE lotId = ? AND localId != ? AND remoteId != ? AND status IN ('sent', 'pending', 'viewed', 'countered')`,
+        [now, lotId, acceptedOfferId, acceptedOfferId]
+      );
+    }
+
+    return rejectedIds;
   },
 
   /**

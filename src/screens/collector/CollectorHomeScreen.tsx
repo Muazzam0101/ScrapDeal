@@ -48,7 +48,7 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
         {/* HERO MAIN CTA: "सामान बेचना है" */}
         <TouchableOpacity
           style={[styles.heroCard, shadows.lg]}
-          onPress={() => navigation.navigate('TakePhoto')}
+          onPress={() => navigation.navigate('MaterialCategory')}
           activeOpacity={0.88}
           accessibilityRole="button"
           accessibilityLabel="Sell scrap: Take photo and check price"

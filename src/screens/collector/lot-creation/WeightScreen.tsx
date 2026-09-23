@@ -24,7 +24,7 @@ export const WeightScreen: React.FC<WeightScreenProps> = ({ navigation, route })
   const { weightKg, setWeightKg, categoryId } = useCreateLot();
 
   const handleContinue = () => {
-    navigation.navigate('PriceValue', {
+    navigation.navigate('TakePhoto', {
       categoryId: categoryId || 'pcb',
       weightKg,
     });

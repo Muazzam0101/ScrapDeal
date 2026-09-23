@@ -1,19 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { lotRepository } from '../../services/sqlite/repositories/lotRepository';
+import { getCategoryDisplayName } from '../../constants/materialCategories';
+import { MaterialLot } from '../../types';
 import { AppHeader } from '../../components/AppHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryButton } from '../../components/SecondaryButton';
-import { VerificationBadge } from '../../components/VerificationBadge';
 import { EmptyState } from '../../components/EmptyState';
 
 interface RecyclerLotDetailsScreenProps {
@@ -26,15 +30,33 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
   route,
 }) => {
   const { t } = useLanguage();
-  const isSamplePreview = route.params?.isSamplePreview ?? true;
+  const passedLot: MaterialLot | undefined = route.params?.lot;
+  const lotId: string | undefined = route.params?.lotId || passedLot?.localId || passedLot?.id;
+
+  const [lot, setLot] = useState<MaterialLot | null>(passedLot || null);
+  const [loading, setLoading] = useState(!passedLot);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [hasData, setHasData] = useState(isSamplePreview);
+
+  useEffect(() => {
+    if (!lot && lotId) {
+      setLoading(true);
+      lotRepository.getLotById(lotId).then((found) => {
+        setLot(found);
+        setLoading(false);
+      }).catch((e) => {
+        console.warn('[RecyclerLotDetails] Load error:', e);
+        setLoading(false);
+      });
+    }
+  }, [lotId]);
 
   const handleMakeOffer = () => {
+    if (!lot) return;
     navigation.navigate('RecyclerMakeOffer', {
-      materialName: 'PCB (Mixed)',
-      weightKg: 15,
-      lotId: 'LOT-2026-0012',
+      lot,
+      lotId: lot.localId,
+      materialName: getCategoryDisplayName(lot.categoryId),
+      weightKg: lot.weightKg,
     });
   };
 
@@ -42,7 +64,19 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
     navigation.goBack();
   };
 
-  if (!hasData) {
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title={t('lotDetailsTitle')} showBack={true} onBackPress={() => navigation.goBack()} />
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>लॉट विवरण लोड किया जा रहा है...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!lot) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <AppHeader
@@ -54,15 +88,19 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
         <View style={styles.emptyContainer}>
           <EmptyState
             icon="cube-outline"
-            title="कोई Lot विवरण उपलब्ध नहीं है"
+            title="कोई लॉट विवरण उपलब्ध नहीं है"
             description="इस लॉट का विवरण देखने के लिए सक्रिय सूची से चयन करें।"
-            actionTitle="नमूना विवरण देखें (View Preview)"
-            onActionPress={() => setHasData(true)}
+            actionTitle="वापस सूची पर जाएँ"
+            onActionPress={() => navigation.goBack()}
           />
         </View>
       </SafeAreaView>
     );
   }
+
+  const photos = lot.photos && lot.photos.length > 0 ? lot.photos : (lot.photoUrls || []);
+  const activePhotoUri = photos[activeImageIndex];
+  const materialName = getCategoryDisplayName(lot.categoryId);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -73,109 +111,99 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
         showRoleSwitch={false}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Large Material Image View with Gallery Indicators */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Real Material Photos Section */}
         <View style={styles.imageContainer}>
-          <View style={styles.imagePlaceholder}>
-            {/* Viewfinder corners */}
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
-
-            <MaterialCommunityIcons name="chip" size={80} color="rgba(255,255,255,0.7)" />
-
-            {/* Gallery Page Indicator */}
-            <View style={styles.pageBadge}>
-              <Text style={styles.pageBadgeText}>{activeImageIndex + 1}/3</Text>
+          {activePhotoUri ? (
+            <View style={styles.photoWrapper}>
+              <Image source={{ uri: activePhotoUri }} style={styles.photo} resizeMode="cover" />
+              {photos.length > 1 && (
+                <View style={styles.pageBadge}>
+                  <Text style={styles.pageBadgeText}>{activeImageIndex + 1}/{photos.length}</Text>
+                </View>
+              )}
             </View>
-          </View>
+          ) : (
+            <View style={styles.noPhotoPlaceholder}>
+              <MaterialCommunityIcons name="chip" size={64} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.noPhotoText}>कोई फोटो उपलब्ध नहीं</Text>
+            </View>
+          )}
 
-          {/* Dots Indicator */}
-          <View style={styles.dotsRow}>
-            {[0, 1, 2].map((idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={[styles.dot, activeImageIndex === idx && styles.dotActive]}
-                onPress={() => setActiveImageIndex(idx)}
-              />
-            ))}
-          </View>
+          {/* Dots Indicator if multiple photos */}
+          {photos.length > 1 && (
+            <View style={styles.dotsRow}>
+              {photos.map((_, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.dot, activeImageIndex === idx && styles.dotActive]}
+                  onPress={() => setActiveImageIndex(idx)}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
-        {/* Lot Title & ID */}
+        {/* Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.materialName}>PCB (Mixed)</Text>
-          <Text style={styles.lotIdText}>Lot ID: L2026-0012</Text>
+          <Text style={styles.materialName}>{materialName}</Text>
+          <Text style={styles.lotIdText}>लॉट नंबर: {lot.lotNumber || lot.localId}</Text>
         </View>
 
-        {/* Weight & Condition Tags */}
+        {/* Weight & Status Badges */}
         <View style={styles.tagsRow}>
           <View style={styles.tagBadge}>
-            <MaterialCommunityIcons name="weight" size={18} color={colors.primaryDark} />
+            <MaterialCommunityIcons name="weight" size={20} color={colors.primaryDark} />
             <View>
-              <Text style={styles.tagValue}>15 kg</Text>
-              <Text style={styles.tagLabel}>{t('approxWeightTag')}</Text>
+              <Text style={styles.tagValue}>{lot.weightKg} {t('kg')}</Text>
+              <Text style={styles.tagLabel}>अनुमानित वजन (Weight)</Text>
             </View>
           </View>
 
           <View style={styles.tagBadge}>
-            <Ionicons name="sparkles-outline" size={18} color={colors.softBlue} />
+            <Ionicons name="information-circle-outline" size={20} color={colors.softBlue} />
             <View>
-              <Text style={styles.tagValue}>Used</Text>
-              <Text style={styles.tagLabel}>{t('conditionTag')}</Text>
+              <Text style={styles.tagValue}>{lot.status.toUpperCase()}</Text>
+              <Text style={styles.tagLabel}>वर्तमान स्थिति (Status)</Text>
             </View>
           </View>
         </View>
 
-        {/* Location Info */}
-        <View style={styles.locationSection}>
-          <Ionicons name="location-sharp" size={20} color={colors.primary} />
-          <View style={styles.locationTextContainer}>
-            <Text style={styles.locationName}>पुणे, महाराष्ट्र (Pune, MH)</Text>
-            <Text style={styles.distanceText}>2.8 km from your facility</Text>
-          </View>
-        </View>
-
-        {/* Estimated Market Value Card */}
-        <View style={styles.valueCard}>
-          <Text style={styles.valueTitle}>{t('estimatedValue')}</Text>
-          <Text style={styles.valueAmount}>₹ 4,000 - 4,350</Text>
-          <Text style={styles.valueRate}>(₹ 260 - 290 / kg)</Text>
-        </View>
-
-        {/* Collector Information Card */}
-        <View style={styles.collectorCard}>
-          <Text style={styles.collectorSectionTitle}>{t('collectorInfoTitle')}</Text>
-          <View style={styles.collectorRow}>
-            <View style={styles.collectorAvatar}>
-              <MaterialCommunityIcons name="account-hard-hat" size={28} color={colors.primary} />
-            </View>
-            <View style={styles.collectorDetails}>
-              <View style={styles.verifiedRow}>
-                <Text style={styles.collectorStatus}>Verified Collector</Text>
-                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-              </View>
-              <Text style={styles.transactionsCount}>24 successful transactions</Text>
-            </View>
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={14} color={colors.softYellow} />
-              <Text style={styles.ratingText}>4.8</Text>
+        {/* Location Section */}
+        {lot.locationCity && (
+          <View style={styles.locationSection}>
+            <Ionicons name="location-sharp" size={20} color={colors.primary} />
+            <View style={styles.locationTextContainer}>
+              <Text style={styles.locationName}>
+                {lot.locationCity}{lot.locationArea ? `, ${lot.locationArea}` : ''}
+              </Text>
+              <Text style={styles.pickupLabel}>
+                पिकअप प्राथमिकता: {lot.pickupOption === 'recycler_pickup' ? 'रीसाइक्लर पिकअप' : 'कलेक्टर ड्रॉप'}
+              </Text>
             </View>
           </View>
+        )}
+
+        {/* Created Timestamp */}
+        <View style={styles.infoCard}>
+          <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.infoText}>
+            लॉट निर्माण तिथि:{' '}
+            {new Date(lot.createdAt).toLocaleDateString('hi-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </Text>
         </View>
       </ScrollView>
 
-      {/* Bottom Sticky Actions: Reject and Make Offer */}
+      {/* Bottom Sticky Action: Make Offer */}
       <View style={styles.bottomBar}>
         <SecondaryButton
-          title={t('rejectCTA')}
-          variant="dangerOutline"
+          title="वापस (Back)"
           onPress={handleReject}
-          style={styles.rejectBtn}
+          style={styles.backBtn}
         />
         <PrimaryButton
           title={t('makeOfferCTA')}
@@ -198,55 +226,70 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.huge,
     gap: spacing.md,
   },
+  loadingBox: {
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+  },
   emptyContainer: {
     padding: spacing.lg,
   },
   imageContainer: {
     alignItems: 'center',
   },
-  imagePlaceholder: {
+  photoWrapper: {
     width: '100%',
     height: 220,
+    borderRadius: borderRadius.xxl,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#E5E7EB',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  noPhotoPlaceholder: {
+    width: '100%',
+    height: 200,
     backgroundColor: '#1E293B',
     borderRadius: borderRadius.xxl,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
   },
-  corner: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: colors.textLight,
+  noPhotoText: {
+    ...typography.caption,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: spacing.xs,
   },
-  topLeft: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },
-  topRight: { top: 12, right: 12, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
-  bottomLeft: { bottom: 12, left: 12, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
-  bottomRight: { bottom: 12, right: 12, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
   pageBadge: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: spacing.sm,
+    right: spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
   },
   pageBadgeText: {
-    ...typography.badge,
-    color: colors.textLight,
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '700',
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 6,
     marginTop: spacing.sm,
+    gap: spacing.xs,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderLight,
   },
   dotActive: {
     backgroundColor: colors.primary,
@@ -256,11 +299,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   materialName: {
-    ...typography.h2,
-    color: colors.text,
+    ...typography.h1,
+    color: colors.textPrimary,
   },
   lotIdText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textMuted,
     marginTop: 2,
   },
@@ -280,12 +323,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tagValue: {
-    ...typography.h4,
-    color: colors.text,
+    ...typography.bodyBold,
+    color: colors.textPrimary,
   },
   tagLabel: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textMuted,
+    fontSize: 11,
   },
   locationSection: {
     flexDirection: 'row',
@@ -301,93 +345,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationName: {
-    ...typography.bodyMedium,
-    fontWeight: '700',
-    color: colors.text,
+    ...typography.bodyBold,
+    color: colors.textPrimary,
   },
-  distanceText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  valueCard: {
-    backgroundColor: colors.primaryUltraLight,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.primaryPale,
-    alignItems: 'center',
-  },
-  valueTitle: {
-    ...typography.caption,
-    color: colors.primaryDark,
-    fontWeight: '700',
-  },
-  valueAmount: {
-    ...typography.displayLarge,
-    color: colors.primaryDark,
-    marginVertical: 2,
-  },
-  valueRate: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  collectorCard: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  collectorSectionTitle: {
+  pickupLabel: {
     ...typography.caption,
     color: colors.textMuted,
-    marginBottom: spacing.sm,
-  },
-  collectorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  collectorAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryPale,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  collectorDetails: {
-    flex: 1,
-  },
-  verifiedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  collectorStatus: {
-    ...typography.bodyMedium,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  transactionsCount: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
     marginTop: 2,
   },
-  ratingBadge: {
+  infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.softYellowBg,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-    gap: 4,
+    backgroundColor: '#F9FAFB',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
-  ratingText: {
-    ...typography.badge,
-    color: colors.softYellow,
+  infoText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   bottomBar: {
     flexDirection: 'row',
@@ -397,7 +373,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderLight,
     gap: spacing.md,
   },
-  rejectBtn: {
+  backBtn: {
     flex: 1,
   },
   offerBtn: {

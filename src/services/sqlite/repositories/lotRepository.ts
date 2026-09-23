@@ -76,7 +76,7 @@ export const lotRepository = {
   async getAvailableLots(): Promise<MaterialLot[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<any>(
-      `SELECT * FROM material_lots WHERE status IN ('created', 'ready', 'matching', 'offered') ORDER BY createdAt DESC`
+      `SELECT * FROM material_lots WHERE status IN ('created', 'ready', 'published', 'matching', 'offered', 'offer_received') ORDER BY createdAt DESC`
     );
     return rows.map((r) => this.mapRowToLot(r));
   },

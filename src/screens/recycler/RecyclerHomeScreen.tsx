@@ -41,8 +41,8 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
   const firmName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || 'Green Earth Recycling';
   const firmLocation = (currentUser as any)?.city || (currentUser as any)?.facilityAddress || t('collectorLocation');
 
-  const newLotsCount = availableLots.filter((l) => l.status === 'created' || l.status === 'ready' || l.status === 'matching').length;
-  const activeDealsCount = availableLots.filter((l) => l.status === 'offered' || l.status === 'deal_locked' || l.status === 'accepted').length;
+  const newLotsCount = availableLots.filter((l) => l.status === 'created' || l.status === 'ready' || l.status === 'published' || l.status === 'matching').length;
+  const activeDealsCount = availableLots.filter((l) => l.status === 'offered' || l.status === 'offer_received' || l.status === 'deal_created' || l.status === 'deal_locked' || l.status === 'accepted').length;
 
   const quickActions = [
     {

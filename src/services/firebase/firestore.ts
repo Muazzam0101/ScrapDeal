@@ -91,7 +91,7 @@ export const firestoreService = {
     if (!isConfigured) return [];
     const q = query(
       collection(db, 'lots'),
-      where('status', 'in', ['created', 'ready', 'matching', 'offered']),
+      where('status', 'in', ['created', 'ready', 'published', 'matching', 'offered', 'offer_received']),
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
@@ -101,6 +101,22 @@ export const firestoreService = {
       remoteId: d.id,
       localId: d.data().localId || d.id,
     } as MaterialLot));
+  },
+
+  /**
+   * Retrieves all registered recyclers from Firestore.
+   */
+  async getAllRecyclers(): Promise<any[]> {
+    if (!isConfigured) return [];
+    const q = query(
+      collection(db, 'users'),
+      where('role', '==', 'recycler')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
   },
 
   /**
@@ -144,6 +160,93 @@ export const firestoreService = {
       id: d.id,
       remoteId: d.id,
     } as Offer));
+  },
+
+  /**
+   * Creates or updates a Deal in Firestore.
+   */
+  async saveDealDoc(deal: any): Promise<string> {
+    if (!isConfigured) {
+      return deal.remoteId || `REMOTE-${deal.id || deal.localId}`;
+    }
+
+    const payload = {
+      ...deal,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    };
+
+    if (deal.remoteId) {
+      const dealRef = doc(db, 'deals', deal.remoteId);
+      await setDoc(dealRef, payload, { merge: true });
+      return deal.remoteId;
+    } else {
+      const collRef = collection(db, 'deals');
+      const docRef = await addDoc(collRef, payload);
+      return docRef.id;
+    }
+  },
+
+  /**
+   * Gets deals for a user from Firestore.
+   */
+  async getDealsForUser(userId: string, role: 'collector' | 'recycler'): Promise<any[]> {
+    if (!isConfigured) return [];
+    const fieldName = role === 'collector' ? 'collectorId' : 'recyclerId';
+    const q = query(
+      collection(db, 'deals'),
+      where(fieldName, '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+      remoteId: d.id,
+    }));
+  },
+
+  /**
+   * Creates or updates a Handover in Firestore.
+   */
+  async saveHandoverDoc(handover: any): Promise<string> {
+    if (!isConfigured) {
+      return handover.remoteId || `REMOTE-${handover.id || handover.localId}`;
+    }
+
+    const payload = {
+      ...handover,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    };
+
+    if (handover.remoteId) {
+      const hoRef = doc(db, 'handovers', handover.remoteId);
+      await setDoc(hoRef, payload, { merge: true });
+      return handover.remoteId;
+    } else {
+      const collRef = collection(db, 'handovers');
+      const docRef = await addDoc(collRef, payload);
+      return docRef.id;
+    }
+  },
+
+  /**
+   * Gets handover for a specific deal from Firestore.
+   */
+  async getHandoverForDeal(dealId: string): Promise<any | null> {
+    if (!isConfigured) return null;
+    const q = query(
+      collection(db, 'handovers'),
+      where('dealId', '==', dealId)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return {
+      ...snap.docs[0].data(),
+      id: snap.docs[0].id,
+      remoteId: snap.docs[0].id,
+    };
   },
 
   /**

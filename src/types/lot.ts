@@ -5,11 +5,13 @@ export type LotStatus =
   | 'draft'
   | 'ready'
   | 'created'
+  | 'published'
   | 'matching'
   | 'matched'
   | 'offered'
   | 'offer_received'
   | 'deal_locked'
+  | 'deal_created'
   | 'accepted'
   | 'handover_pending'
   | 'handed_over'
@@ -39,17 +41,6 @@ export interface TraceabilityRecord {
   manifestNumber?: string;
 }
 
-export interface HandoverRecord {
-  id: string;
-  lotId: string;
-  handoverTime: string;
-  photoUrl?: string;
-  latitude?: number;
-  longitude?: number;
-  collectorConfirmed: boolean;
-  recyclerConfirmed: boolean;
-  checklist: HandoverChecklistState;
-}
 
 export interface MaterialLot {
   id: string; // Compatible with id
@@ -73,6 +64,8 @@ export interface MaterialLot {
   agreedTotalAmount?: number;
   selectedRecyclerId?: string;
   pickupOption?: PickupOption;
+  dealId?: string;
+  acceptedOfferId?: string;
   syncStatus: SyncStatus;
   createdAt: string;
   updatedAt: string;

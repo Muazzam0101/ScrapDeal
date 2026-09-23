@@ -2,13 +2,15 @@ import { PickupOption } from './lot';
 import { SyncStatus } from './sync';
 
 export type OfferStatus =
+  | 'pending'
   | 'sent'
   | 'viewed'
   | 'countered'
   | 'final_offer'
   | 'accepted'
   | 'rejected'
-  | 'expired';
+  | 'expired'
+  | 'cancelled';
 
 export interface OfferTimelineEvent {
   step: 'offer_sent' | 'viewed' | 'counter_offer' | 'final_offer' | 'accepted' | 'rejected';
@@ -24,6 +26,9 @@ export interface Offer {
   localId?: string;
   remoteId?: string;
   lotId: string;
+  collectorId?: string;
+  materialCategoryId?: string;
+  weightKg?: number;
   recyclerId: string;
   recyclerName?: string;
   ratePerKg: number;

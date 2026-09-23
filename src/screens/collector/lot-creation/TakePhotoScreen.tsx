@@ -21,7 +21,7 @@ interface TakePhotoScreenProps {
 
 export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
-  const { photoCaptured, setPhotoCaptured, photoUris, addPhotoUri, setPhotoUris } = useCreateLot();
+  const { photoCaptured, setPhotoCaptured, photoUris, addPhotoUri, setPhotoUris, categoryId, weightKg } = useCreateLot();
   const [flashOn, setFlashOn] = useState(false);
 
   const activePhotoUri = photoUris.length > 0 ? photoUris[photoUris.length - 1] : null;
@@ -85,11 +85,14 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
   };
 
   const handleContinue = () => {
-    // If no real photo was snapped yet, provide a valid offline reference
     if (photoUris.length === 0) {
       addPhotoUri(`file:///scrapdeal_lot_${Date.now()}.jpg`);
     }
-    navigation.navigate('MaterialCategory');
+    if (categoryId && weightKg > 0) {
+      navigation.navigate('DealConfirmation');
+    } else {
+      navigation.navigate('MaterialCategory');
+    }
   };
 
   return (

@@ -1,12 +1,18 @@
 export type MaterialCategoryId =
+  | 'e_waste'
+  | 'copper'
+  | 'aluminium'
+  | 'iron_steel'
   | 'pcb'
+  | 'cables'
   | 'wires'
   | 'battery'
+  | 'plastic'
+  | 'mixed_plastic'
   | 'tv_crt'
   | 'lcd_panel'
   | 'motor'
   | 'magnet'
-  | 'mixed_plastic'
   | 'other';
 
 export interface MaterialCategoryItem {

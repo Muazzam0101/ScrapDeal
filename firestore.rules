@@ -56,6 +56,46 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Deals collection
+    match /deals/{dealId} {
+      allow read: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.collectorId == request.auth.uid ||
+        request.resource.data.recyclerId == request.auth.uid
+      );
+
+      allow update: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      allow delete: if false;
+    }
+
+    // Handovers collection
+    match /handovers/{handoverId} {
+      allow read: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.collectorId == request.auth.uid ||
+        request.resource.data.recyclerId == request.auth.uid
+      );
+
+      allow update: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      allow delete: if false;
+    }
+
     // Transactions collection
     match /transactions/{transactionId} {
       // Only transaction participants can read
@@ -70,7 +110,13 @@ service cloud.firestore {
         request.resource.data.recyclerId == request.auth.uid
       );
 
-      allow update, delete: if false;
+      // Allow updating payment status/method
+      allow update: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      allow delete: if false;
     }
   }
 }

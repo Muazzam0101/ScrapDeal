@@ -45,15 +45,17 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
   const totalAmount = Math.round(numericRate * weightKg);
 
   const handleSendOffer = async () => {
+    if (numericRate <= 0) {
+      alert('कृपया 0 से अधिक दर दर्ज करें (Please enter rate greater than 0)');
+      return;
+    }
+
     const recyclerId = currentUser?.id || 'RECYCLER-GREEN-EARTH';
-    const recyclerName = (currentUser as any)?.firmName || 'Green Earth Recycling';
-    const now = new Date().toISOString();
+    const recyclerName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || 'पंजीकृत रीसाइक्लर';
 
     try {
-      // 1. Create real offer in SQLite
-      const offer = await offerRepository.createOffer({
-        id: `OFFER-${Date.now()}`,
-        localId: `OFFER-${Date.now()}`,
+      const { dealFlowService } = await import('../../services/deal/dealFlowService');
+      const offer = await dealFlowService.submitRecyclerOffer({
         lotId,
         recyclerId,
         recyclerName,
@@ -61,49 +63,16 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
         totalAmount,
         pickupOption,
         comments,
-        status: 'sent',
-        timeline: [
-          {
-            step: 'offer_sent',
-            timestamp: now,
-            actorRole: 'recycler',
-            ratePerKg: numericRate,
-            totalAmount,
-            note: comments,
-          },
-        ],
-        syncStatus: 'pending',
-        createdAt: now,
       });
-
-      // 2. Enqueue in sync queue
-      await syncQueueRepository.enqueueOperation({
-        entityType: 'offer',
-        localId: offer.localId!,
-        operationType: 'CREATE',
-        payload: offer,
-      });
-
-      // 3. Update lot status to 'offered'
-      await updateLotStatus(lotId, 'offered');
-
-      // 4. Trigger sync if online
-      if (networkService.isOnline()) {
-        syncEngine.triggerSync().catch((e) => console.warn('[MakeOffer] Sync error:', e));
-      }
 
       navigation.navigate('RecyclerOfferStatus', {
         offerId: offer.localId,
         ratePerKg: numericRate,
         totalAmount,
       });
-    } catch (e) {
+    } catch (e: any) {
       console.warn('[MakeOffer] Error creating offer:', e);
-      navigation.navigate('RecyclerOfferStatus', {
-        offerId: `OFFER-${Date.now()}`,
-        ratePerKg: numericRate,
-        totalAmount,
-      });
+      alert(e?.message || 'ऑफर भेजने में त्रुटि हुई');
     }
   };
 

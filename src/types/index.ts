@@ -3,5 +3,7 @@ export * from './material';
 export * from './lot';
 export * from './offer';
 export * from './transaction';
+export * from './deal';
+export * from './handover';
 export * from './navigation';
 export * from './sync';

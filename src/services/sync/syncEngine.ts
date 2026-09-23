@@ -3,6 +3,8 @@ import { lotRepository } from '../sqlite/repositories/lotRepository';
 import { userRepository } from '../sqlite/repositories/userRepository';
 import { offerRepository } from '../sqlite/repositories/offerRepository';
 import { transactionRepository } from '../sqlite/repositories/transactionRepository';
+import { dealRepository } from '../sqlite/repositories/dealRepository';
+import { handoverRepository } from '../sqlite/repositories/handoverRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
@@ -186,6 +188,34 @@ class SyncEngine {
         const remoteTxId = await firestoreService.saveTransactionDoc(tx);
         const localId = tx.localId || tx.id;
         await transactionRepository.updateTransactionSyncStatus(localId, 'synced', remoteTxId);
+        break;
+      }
+
+      case 'deal': {
+        const deal = payload;
+        const remoteDealId = await firestoreService.saveDealDoc(deal);
+        const localId = deal.localId || deal.id;
+        await dealRepository.updateDealSyncStatus(localId, 'synced', remoteDealId);
+        break;
+      }
+
+      case 'handover': {
+        const handover = payload;
+        // If handover has a local photo, upload to storage
+        if (handover.photoUri && !handover.photoUri.startsWith('http')) {
+          try {
+            const uploadedUrl = await storageService.uploadPhoto(
+              handover.photoUri,
+              `handovers/${handover.dealId}/handover_${Date.now()}.jpg`
+            );
+            handover.photoUrl = uploadedUrl;
+          } catch (storageErr) {
+            console.warn('[SyncEngine] Handover photo upload failed, keeping local uri:', storageErr);
+          }
+        }
+        const remoteHoId = await firestoreService.saveHandoverDoc(handover);
+        const localId = handover.localId || handover.id;
+        await handoverRepository.updateHandoverSyncStatus(localId, 'synced', remoteHoId);
         break;
       }
 

@@ -58,6 +58,37 @@ export const transactionRepository = {
   },
 
   /**
+   * Gets a transaction by its lotId.
+   */
+  async getTransactionByLotId(lotId: string): Promise<Transaction | null> {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<any>(
+      `SELECT * FROM transactions WHERE lotId = ? OR localId = ? LIMIT 1`,
+      [lotId, lotId]
+    );
+    return row ? this.mapRowToTransaction(row) : null;
+  },
+
+  /**
+   * Updates payment method and status for a transaction.
+   */
+  async updatePaymentStatus(id: string, status: PaymentStatus, method?: PaymentMethod): Promise<void> {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    if (method) {
+      await db.runAsync(
+        `UPDATE transactions SET paymentStatus = ?, paymentMethod = ?, updatedAt = ?, syncStatus = 'pending' WHERE localId = ? OR remoteId = ?`,
+        [status, method, now, id, id]
+      );
+    } else {
+      await db.runAsync(
+        `UPDATE transactions SET paymentStatus = ?, updatedAt = ?, syncStatus = 'pending' WHERE localId = ? OR remoteId = ?`,
+        [status, now, id, id]
+      );
+    }
+  },
+
+  /**
    * Computes earnings statistics for a collector.
    */
   async getCollectorEarningsSummary(collectorId: string): Promise<{

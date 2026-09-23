@@ -45,12 +45,18 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
 
   const filteredLots = availableLots.filter((lot) => {
     if (activeTab === 'new') {
-      return lot.status === 'created' || lot.status === 'ready' || lot.status === 'matching';
+      return (
+        lot.status === 'created' ||
+        lot.status === 'ready' ||
+        lot.status === 'published' ||
+        lot.status === 'matching'
+      );
     } else if (activeTab === 'offered') {
-      return lot.status === 'offered';
+      return lot.status === 'offered' || lot.status === 'offer_received';
     } else {
       return (
         lot.status === 'deal_locked' ||
+        lot.status === 'deal_created' ||
         lot.status === 'accepted' ||
         lot.status === 'handover_pending' ||
         lot.status === 'paid' ||

@@ -87,6 +87,17 @@ export const userRepository = {
   },
 
   /**
+   * Retrieves all registered recyclers from local SQLite cache.
+   */
+  async getAllRecyclers(): Promise<RecyclerProfile[]> {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<any>(
+      `SELECT * FROM users WHERE role = 'recycler' ORDER BY createdAt DESC`
+    );
+    return rows.map((r) => this.mapRowToUser(r) as RecyclerProfile);
+  },
+
+  /**
    * Updates profile fields.
    */
   async updateProfile(id: string, updates: Partial<User>): Promise<void> {
