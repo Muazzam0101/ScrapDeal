@@ -1,0 +1,198 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, spacing, typography, borderRadius } from '../../theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { useRole } from '../../context/RoleContext';
+import { AppHeader } from '../../components/AppHeader';
+import { LanguageSelector } from '../../components/LanguageSelector';
+import { PrimaryButton } from '../../components/PrimaryButton';
+
+interface CollectorProfileScreenProps {
+  navigation: any;
+}
+
+export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
+  navigation,
+}) => {
+  const { t } = useLanguage();
+  const { switchRole } = useRole();
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <AppHeader
+        title={t('tabProfile')}
+        showBack={false}
+        showRoleSwitch={false}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Header Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarLarge}>
+            <MaterialCommunityIcons name="account-hard-hat" size={48} color={colors.primary} />
+          </View>
+          <Text style={styles.userName}>कबाड़ी मित्र (Collector)</Text>
+          <Text style={styles.userLocation}>
+            <Ionicons name="location-sharp" size={14} color={colors.primary} /> {t('collectorLocation')}
+          </Text>
+
+          <View style={styles.verificationTag}>
+            <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
+            <Text style={styles.verificationTagText}>सत्यापित कबाड़ीवाला (Verified)</Text>
+          </View>
+        </View>
+
+        {/* Language Selection Card */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('chooseLanguage')}</Text>
+          <LanguageSelector />
+        </View>
+
+        {/* Role Switcher Action */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('switchRole')}</Text>
+          <Text style={styles.sectionDesc}>
+            यदि आप सामग्री खरीदना चाहते हैं तो रीसाइक्लर मोड में बदलें।
+          </Text>
+          <PrimaryButton
+            title="Recycler मोड में बदलें (Switch to Recycler)"
+            icon="sync"
+            variant="secondary"
+            onPress={switchRole}
+            style={styles.switchBtn}
+          />
+        </View>
+
+        {/* Safety & Help */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>मदद व सुरक्षा (Help & Safety)</Text>
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => navigation.navigate('CollectorSafety')}
+          >
+            <View style={styles.menuLeft}>
+              <Ionicons name="shield-outline" size={22} color={colors.primary} />
+              <Text style={styles.menuText}>सुरक्षा नियम व दिशानिर्देश</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity style={styles.menuRow}>
+            <View style={styles.menuLeft}>
+              <Ionicons name="call-outline" size={22} color={colors.primary} />
+              <Text style={styles.menuText}>हेल्पलाइन सहायता (1800-XXX-XXXX)</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.huge,
+    gap: spacing.lg,
+  },
+  profileCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  avatarLarge: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.primaryPale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  userName: {
+    ...typography.h2,
+    color: colors.text,
+  },
+  userLocation: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  verificationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryPale,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  verificationTagText: {
+    ...typography.badge,
+    color: colors.primaryDark,
+  },
+  sectionCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  sectionDesc: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  switchBtn: {
+    marginTop: spacing.xs,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  menuText: {
+    ...typography.bodyMedium,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.xs,
+  },
+});
