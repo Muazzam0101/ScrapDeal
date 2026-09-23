@@ -13,6 +13,7 @@ import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 import { MaterialCategoryCard } from '../../../components/MaterialCategoryCard';
 import { MaterialCategoryId } from '../../../types';
+import { materialRecognitionService } from '../../../services/ai/materialRecognitionService';
 
 interface MaterialCategoryScreenProps {
   navigation: any;
@@ -41,10 +42,25 @@ export const MaterialCategoryScreen: React.FC<MaterialCategoryScreenProps> = ({
   navigation,
 }) => {
   const { t } = useLanguage();
-  const { categoryId, setCategoryId } = useCreateLot();
+  const {
+    categoryId,
+    setCategoryId,
+    aiPredictionId,
+    aiPredictedCategory,
+    setAiPredictionData,
+  } = useCreateLot();
 
-  const handleSelect = (id: MaterialCategoryId) => {
+  const handleSelect = async (id: MaterialCategoryId) => {
     setCategoryId(id);
+    if (aiPredictionId && aiPredictedCategory && id !== aiPredictedCategory) {
+      await materialRecognitionService.recordFeedback({
+        predictionLocalId: aiPredictionId,
+        finalCategory: id,
+        userConfirmed: false,
+        feedbackNotes: `Collector corrected AI prediction from ${aiPredictedCategory} to ${id}`,
+      });
+      setAiPredictionData({ userConfirmed: false });
+    }
   };
 
   const handleContinue = () => {

@@ -183,6 +183,60 @@ export const CREATE_TABLES_SQL = `
     lastSyncedAt TEXT
   );
 
+  -- AI Predictions table
+  CREATE TABLE IF NOT EXISTS ai_predictions (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    entityId TEXT NOT NULL,
+    modelName TEXT NOT NULL,
+    modelVersion TEXT NOT NULL,
+    predictedCategory TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    alternativesJson TEXT,
+    userConfirmed INTEGER NOT NULL DEFAULT 1,
+    finalCategory TEXT NOT NULL,
+    feedbackNotes TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    lastSyncedAt TEXT
+  );
+
+  -- AI Price Estimates table
+  CREATE TABLE IF NOT EXISTS ai_price_estimates (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    lotId TEXT NOT NULL,
+    modelName TEXT NOT NULL,
+    modelVersion TEXT NOT NULL,
+    estimatedMin REAL NOT NULL,
+    estimatedMax REAL NOT NULL,
+    estimatedAverage REAL NOT NULL,
+    confidence REAL NOT NULL,
+    basisJson TEXT,
+    dataPointCount INTEGER NOT NULL DEFAULT 0,
+    lastMarketDataAt TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    lastSyncedAt TEXT
+  );
+
+  -- AI Anomaly Events table
+  CREATE TABLE IF NOT EXISTS ai_anomaly_events (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    transactionId TEXT,
+    lotId TEXT,
+    modelName TEXT NOT NULL,
+    modelVersion TEXT NOT NULL,
+    anomalyScore REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'normal',
+    reason TEXT,
+    signalsJson TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    lastSyncedAt TEXT
+  );
+
   -- Indices for faster lookups
   CREATE INDEX IF NOT EXISTS idx_lots_collector ON material_lots(collectorId);
   CREATE INDEX IF NOT EXISTS idx_lots_status ON material_lots(status);
@@ -196,4 +250,7 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_tx_recycler ON transactions(recyclerId);
   CREATE INDEX IF NOT EXISTS idx_prices_material ON material_prices(materialCategory);
   CREATE INDEX IF NOT EXISTS idx_prices_recycler ON material_prices(recyclerId);
+  CREATE INDEX IF NOT EXISTS idx_ai_predictions_entity ON ai_predictions(entityId);
+  CREATE INDEX IF NOT EXISTS idx_ai_prices_lot ON ai_price_estimates(lotId);
+  CREATE INDEX IF NOT EXISTS idx_ai_anomaly_tx ON ai_anomaly_events(transactionId);
 `;

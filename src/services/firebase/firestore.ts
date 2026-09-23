@@ -325,10 +325,67 @@ export const firestoreService = {
         ...d.data(),
         id: d.id,
         remoteId: d.id,
-      } as MaterialPrice));
+      })) as MaterialPrice[];
     } catch (e) {
       console.warn('[Firestore] Failed to get price docs:', e);
       return [];
     }
+  },
+
+  /**
+   * Saves or updates an AIPrediction document in Firestore.
+   */
+  async saveAIPredictionDoc(prediction: any): Promise<string> {
+    if (!isConfigured) {
+      return prediction.remoteId || `REMOTE-${prediction.localId}`;
+    }
+
+    const payload = {
+      ...prediction,
+      syncStatus: 'synced',
+    };
+
+    const docId = prediction.remoteId || prediction.localId;
+    const docRef = doc(db, 'aiPredictions', docId);
+    await setDoc(docRef, payload, { merge: true });
+    return docId;
+  },
+
+  /**
+   * Saves or updates an AIPriceEstimate document in Firestore.
+   */
+  async saveAIPriceEstimateDoc(estimate: any): Promise<string> {
+    if (!isConfigured) {
+      return estimate.remoteId || `REMOTE-${estimate.localId}`;
+    }
+
+    const payload = {
+      ...estimate,
+      syncStatus: 'synced',
+    };
+
+    const docId = estimate.remoteId || estimate.localId;
+    const docRef = doc(db, 'aiPriceEstimates', docId);
+    await setDoc(docRef, payload, { merge: true });
+    return docId;
+  },
+
+  /**
+   * Saves or updates an AIAnomalyEvent document in Firestore.
+   */
+  async saveAIAnomalyEventDoc(event: any): Promise<string> {
+    if (!isConfigured) {
+      return event.remoteId || `REMOTE-${event.localId}`;
+    }
+
+    const payload = {
+      ...event,
+      syncStatus: 'synced',
+    };
+
+    const docId = event.remoteId || event.localId;
+    const docRef = doc(db, 'anomalyEvents', docId);
+    await setDoc(docRef, payload, { merge: true });
+    return docId;
   },
 };

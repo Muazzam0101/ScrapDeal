@@ -22,6 +22,16 @@ interface CreateLotContextType {
   setPaymentMethod: (m: PaymentMethod) => void;
   createdLotId: string | null;
   setCreatedLotId: (id: string | null) => void;
+  aiPredictionId: string | null;
+  aiPredictedCategory: MaterialCategoryId | null;
+  aiConfidence: number | null;
+  aiUserConfirmed: boolean;
+  setAiPredictionData: (data: {
+    predictionId?: string | null;
+    predictedCategory?: MaterialCategoryId | null;
+    confidence?: number | null;
+    userConfirmed?: boolean;
+  }) => void;
   resetLot: () => void;
 }
 
@@ -44,6 +54,22 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [checklist, setChecklist] = useState<HandoverChecklistState>(defaultChecklist);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [createdLotId, setCreatedLotId] = useState<string | null>(null);
+  const [aiPredictionId, setAiPredictionId] = useState<string | null>(null);
+  const [aiPredictedCategory, setAiPredictedCategory] = useState<MaterialCategoryId | null>(null);
+  const [aiConfidence, setAiConfidence] = useState<number | null>(null);
+  const [aiUserConfirmed, setAiUserConfirmed] = useState<boolean>(true);
+
+  const setAiPredictionData = (data: {
+    predictionId?: string | null;
+    predictedCategory?: MaterialCategoryId | null;
+    confidence?: number | null;
+    userConfirmed?: boolean;
+  }) => {
+    if (data.predictionId !== undefined) setAiPredictionId(data.predictionId);
+    if (data.predictedCategory !== undefined) setAiPredictedCategory(data.predictedCategory);
+    if (data.confidence !== undefined) setAiConfidence(data.confidence);
+    if (data.userConfirmed !== undefined) setAiUserConfirmed(data.userConfirmed);
+  };
 
   const addPhotoUri = (uri: string) => {
     setPhotoUris((prev) => [...prev, uri]);
@@ -67,6 +93,10 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
     setChecklist(defaultChecklist);
     setPaymentMethod('cash');
     setCreatedLotId(null);
+    setAiPredictionId(null);
+    setAiPredictedCategory(null);
+    setAiConfidence(null);
+    setAiUserConfirmed(true);
   };
 
   return (
@@ -92,6 +122,11 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
         setPaymentMethod,
         createdLotId,
         setCreatedLotId,
+        aiPredictionId,
+        aiPredictedCategory,
+        aiConfidence,
+        aiUserConfirmed,
+        setAiPredictionData,
         resetLot,
       }}
     >

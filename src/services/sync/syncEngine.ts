@@ -6,6 +6,7 @@ import { transactionRepository } from '../sqlite/repositories/transactionReposit
 import { dealRepository } from '../sqlite/repositories/dealRepository';
 import { handoverRepository } from '../sqlite/repositories/handoverRepository';
 import { priceRepository } from '../sqlite/repositories/priceRepository';
+import { aiRepository } from '../sqlite/repositories/aiRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
@@ -225,6 +226,30 @@ class SyncEngine {
         const remotePriceId = await firestoreService.savePriceDoc(price);
         const localId = price.localId || price.id;
         await priceRepository.updatePrice({ localId, syncStatus: 'synced' });
+        break;
+      }
+
+      case 'ai_prediction': {
+        const pred = payload;
+        const remotePredId = await firestoreService.saveAIPredictionDoc(pred);
+        const localId = pred.localId || pred.id;
+        await aiRepository.updateSyncStatus('ai_predictions', localId, 'synced', remotePredId);
+        break;
+      }
+
+      case 'ai_price_estimate': {
+        const est = payload;
+        const remoteEstId = await firestoreService.saveAIPriceEstimateDoc(est);
+        const localId = est.localId || est.id;
+        await aiRepository.updateSyncStatus('ai_price_estimates', localId, 'synced', remoteEstId);
+        break;
+      }
+
+      case 'ai_anomaly_event': {
+        const evt = payload;
+        const remoteEvtId = await firestoreService.saveAIAnomalyEventDoc(evt);
+        const localId = evt.localId || evt.id;
+        await aiRepository.updateSyncStatus('ai_anomaly_events', localId, 'synced', remoteEvtId);
         break;
       }
 

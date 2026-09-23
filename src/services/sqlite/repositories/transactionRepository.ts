@@ -178,6 +178,18 @@ export const transactionRepository = {
     }
   },
 
+  /**
+   * Gets completed transactions for a material name/category.
+   */
+  async getTransactionsByMaterial(materialName: string): Promise<Transaction[]> {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<any>(
+      `SELECT * FROM transactions WHERE (LOWER(materialName) LIKE ? OR LOWER(materialName) LIKE ?) ORDER BY date DESC`,
+      [`%${materialName.toLowerCase()}%`, `%${materialName.toLowerCase().replace('_', ' ')}%`]
+    );
+    return rows.map((r) => this.mapRowToTransaction(r));
+  },
+
   mapRowToTransaction(row: any): Transaction {
     return {
       id: row.localId,

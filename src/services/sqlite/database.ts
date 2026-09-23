@@ -83,5 +83,11 @@ export async function clearAllLocalData(): Promise<void> {
     DELETE FROM offers;
     DELETE FROM material_lots;
     DELETE FROM users;
+    DELETE FROM deals;
+    DELETE FROM handovers;
+    DELETE FROM material_prices;
+    DELETE FROM ai_predictions;
+    DELETE FROM ai_price_estimates;
+    DELETE FROM ai_anomaly_events;
   `);
 }

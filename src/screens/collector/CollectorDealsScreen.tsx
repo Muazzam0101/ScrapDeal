@@ -26,7 +26,8 @@ import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { LotCard } from '../../components/LotCard';
 import { VerificationBadge } from '../../components/VerificationBadge';
-import { Offer, Deal, Transaction } from '../../types';
+import { Offer, Deal, Transaction, AnomalyEvaluationResult } from '../../types';
+import { anomalyDetectionService } from '../../services/ai/anomalyDetectionService';
 
 interface CollectorDealsScreenProps {
   navigation: any;
@@ -46,6 +47,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
   const [lotOffers, setLotOffers] = useState<Record<string, Offer[]>>({});
   const [lotDeals, setLotDeals] = useState<Record<string, Deal>>({});
   const [completedTxs, setCompletedTxs] = useState<Transaction[]>([]);
+  const [offerAnomalies, setOfferAnomalies] = useState<Record<string, AnomalyEvaluationResult>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const collectorId = currentUser?.id || 'COLLECTOR-LOCAL';
@@ -56,11 +58,31 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
     // Load offers and deals for each lot
     const offersMap: Record<string, Offer[]> = {};
     const dealsMap: Record<string, Deal> = {};
+    const anomaliesMap: Record<string, AnomalyEvaluationResult> = {};
 
     for (const lot of collectorLots) {
       try {
         const offers = await offerRepository.getOffersForLot(lot.localId);
         offersMap[lot.localId] = offers;
+
+        for (const offer of offers) {
+          try {
+            const evalResult = await anomalyDetectionService.evaluateTransaction({
+              materialCategory: lot.categoryId,
+              weightKg: lot.weightKg,
+              ratePerKg: offer.ratePerKg,
+              totalAmount: offer.totalAmount,
+              lotId: lot.localId,
+              collectorId,
+              recyclerId: offer.recyclerId,
+            });
+            if (evalResult.isFlagged) {
+              anomaliesMap[offer.localId || offer.id] = evalResult;
+            }
+          } catch (anomErr) {
+            // Non-blocking advisory check
+          }
+        }
 
         const deal = await dealRepository.getDealByLotId(lot.localId);
         if (deal) {
@@ -72,6 +94,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
     }
     setLotOffers(offersMap);
     setLotDeals(dealsMap);
+    setOfferAnomalies(anomaliesMap);
 
     // Load completed transactions
     try {
@@ -293,6 +316,16 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                                 पारदर्शी गणना: {lot.weightKg} kg × ₹{offer.ratePerKg} = ₹{offer.totalAmount}
                               </Text>
                             </View>
+
+                            {offerAnomalies[offer.localId || offer.id]?.isFlagged && (
+                              <View style={styles.anomalyBanner}>
+                                <Ionicons name="alert-circle-outline" size={16} color="#B45309" />
+                                <Text style={styles.anomalyBannerText}>
+                                  {offerAnomalies[offer.localId || offer.id]?.reason ||
+                                    'असामान्य दर पैटर्न: स्वीकार करने से पहले जांचें (Review before accepting)'}
+                                </Text>
+                              </View>
+                            )}
 
                             {offer.comments ? (
                               <Text style={styles.offerComment}>
@@ -664,5 +697,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  anomalyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.xs,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  anomalyBannerText: {
+    ...typography.caption,
+    color: '#92400E',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
   },
 });
