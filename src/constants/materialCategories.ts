@@ -11,6 +11,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'MaterialCommunityIcons',
     titleKey: 'categoryPcb',
     subtitleKey: 'categoryPcbSub',
+    labelEn: 'PCB (Circuit Board)',
     color: '#00875A',
     bgColor: '#E3FCEF',
   },
@@ -20,6 +21,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryCopper',
     subtitleKey: 'categoryCopperSub',
+    labelEn: 'Copper',
     color: '#D97706',
     bgColor: '#FEF3C7',
   },
@@ -29,6 +31,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryAluminium',
     subtitleKey: 'categoryAluminiumSub',
+    labelEn: 'Aluminium',
     color: '#4B5563',
     bgColor: '#F3F4F6',
   },
@@ -38,6 +41,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryIronSteel',
     subtitleKey: 'categoryIronSteelSub',
+    labelEn: 'Iron / Steel',
     color: '#374151',
     bgColor: '#E5E7EB',
   },
@@ -47,6 +51,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryEWaste',
     subtitleKey: 'categoryEWasteSub',
+    labelEn: 'E-Waste',
     color: '#2563EB',
     bgColor: '#DBEAFE',
   },
@@ -56,6 +61,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'MaterialCommunityIcons',
     titleKey: 'categoryWires',
     subtitleKey: 'categoryWiresSub',
+    labelEn: 'Wires & Cables',
     color: '#0D9488',
     bgColor: '#CCFBF1',
   },
@@ -65,6 +71,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'MaterialCommunityIcons',
     titleKey: 'categoryBattery',
     subtitleKey: 'categoryBatterySub',
+    labelEn: 'Batteries',
     color: '#DC2626',
     bgColor: '#FEE2E2',
   },
@@ -74,6 +81,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'MaterialCommunityIcons',
     titleKey: 'categoryPlastic',
     subtitleKey: 'categoryPlasticSub',
+    labelEn: 'Plastics',
     color: '#059669',
     bgColor: '#D1FAE5',
   },
@@ -83,6 +91,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'MaterialCommunityIcons',
     titleKey: 'categoryMotor',
     subtitleKey: 'categoryMotorSub',
+    labelEn: 'Motors & Magnets',
     color: '#7C3AED',
     bgColor: '#EDE9FE',
   },
@@ -92,6 +101,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryTvCrt',
     subtitleKey: 'categoryTvCrtSub',
+    labelEn: 'TV / CRT',
     color: '#EA580C',
     bgColor: '#FFEDD5',
   },
@@ -101,6 +111,7 @@ export const MATERIAL_CATEGORIES: MaterialCategoryItem[] = [
     iconFamily: 'Ionicons',
     titleKey: 'categoryOther',
     subtitleKey: 'categoryOtherSub',
+    labelEn: 'Other Scrap',
     color: '#64748B',
     bgColor: '#F1F5F9',
   },
@@ -113,6 +124,5 @@ export function getCategoryById(id: string): MaterialCategoryItem | undefined {
 export function getCategoryDisplayName(id: string): string {
   const cat = getCategoryById(id);
   if (!cat) return id.toUpperCase();
-  // Formatting helper fallback
-  return cat.id.replace('_', ' ').toUpperCase();
+  return cat.labelEn || cat.id.replace('_', ' ').toUpperCase();
 }

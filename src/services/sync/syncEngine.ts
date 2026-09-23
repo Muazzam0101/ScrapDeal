@@ -5,10 +5,11 @@ import { offerRepository } from '../sqlite/repositories/offerRepository';
 import { transactionRepository } from '../sqlite/repositories/transactionRepository';
 import { dealRepository } from '../sqlite/repositories/dealRepository';
 import { handoverRepository } from '../sqlite/repositories/handoverRepository';
+import { priceRepository } from '../sqlite/repositories/priceRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
-import { SyncQueueItem, MaterialLot, User, Offer, Transaction } from '../../types';
+import { SyncQueueItem, MaterialLot, User, Offer, Transaction, MaterialPrice } from '../../types';
 
 export type SyncEngineListener = (status: {
   isSyncing: boolean;
@@ -219,6 +220,14 @@ class SyncEngine {
         break;
       }
 
+      case 'material_price': {
+        const price = payload;
+        const remotePriceId = await firestoreService.savePriceDoc(price);
+        const localId = price.localId || price.id;
+        await priceRepository.updatePrice({ localId, syncStatus: 'synced' });
+        break;
+      }
+
       default:
         console.warn(`[SyncEngine] Unrecognized entityType: ${op.entityType}`);
     }
@@ -242,6 +251,12 @@ class SyncEngine {
         if (availableLots && availableLots.length > 0) {
           await lotRepository.saveLotsFromRemote(availableLots);
         }
+      }
+
+      // Pull fresh material prices for offline price board
+      const remotePrices = await firestoreService.getAllPriceDocs();
+      for (const p of remotePrices) {
+        await priceRepository.createPrice({ ...p, syncStatus: 'synced' });
       }
     } catch (e) {
       console.warn('[SyncEngine] Pull remote data warning:', e);

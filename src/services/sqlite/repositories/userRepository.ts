@@ -17,14 +17,38 @@ export const userRepository = {
     const businessName = recycler?.firmName || recycler?.businessName || null;
     const contactName = recycler?.contactName || recycler?.contactPerson || null;
     const address = recycler?.facilityAddress || recycler?.address || null;
-    const location = collector?.location || collector?.operatingCity || recycler?.city || 'पुणे';
-    const verificationStatus = (isCollector ? collector?.verificationStatus : recycler?.verificationStatus) || 'verified';
+    const location = collector?.location || collector?.operatingCity || recycler?.city || null;
+    const verificationStatus = (isCollector ? collector?.verificationStatus : recycler?.verificationStatus) || 'pending';
+
+    const identityVerificationStatus = user.identityVerificationStatus || 'not_started';
+    const identityVerificationProvider = user.identityVerificationProvider || null;
+    const identityVerificationRef = user.identityVerificationRef || null;
+    const identityVerifiedAt = user.identityVerifiedAt || null;
+
+    const authorizationVerificationStatus = recycler?.authorizationVerificationStatus || 'not_started';
+    const authorizationVerificationProvider = recycler?.authorizationVerificationProvider || null;
+    const authorizationVerificationRef = recycler?.authorizationVerificationRef || null;
+    const authorizationVerifiedAt = recycler?.authorizationVerifiedAt || null;
+
+    const serviceRadiusKm = recycler?.serviceRadiusKm !== undefined ? recycler.serviceRadiusKm : 25;
+    const serviceArea = recycler?.serviceArea || null;
+    const acceptedMaterials = recycler?.acceptedMaterials ? JSON.stringify(recycler.acceptedMaterials) : null;
+    const pickupAvailable = recycler?.pickupAvailable !== undefined ? (recycler.pickupAvailable ? 1 : 0) : 1;
+    const isAvailable = recycler?.isAvailable !== undefined ? (recycler.isAvailable ? 1 : 0) : 1;
+
+    const latitude = user.latitude !== undefined ? user.latitude : null;
+    const longitude = user.longitude !== undefined ? user.longitude : null;
 
     await db.runAsync(
       `INSERT INTO users (
         id, phoneNumber, role, name, businessName, contactName, address,
-        location, language, verificationStatus, remoteId, syncStatus, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        location, language, verificationStatus,
+        identityVerificationStatus, identityVerificationProvider, identityVerificationRef, identityVerifiedAt,
+        authorizationVerificationStatus, authorizationVerificationProvider, authorizationVerificationRef, authorizationVerifiedAt,
+        serviceRadiusKm, serviceArea, acceptedMaterials, pickupAvailable, isAvailable,
+        latitude, longitude,
+        remoteId, syncStatus, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         phoneNumber = excluded.phoneNumber,
         role = excluded.role,
@@ -35,6 +59,21 @@ export const userRepository = {
         location = excluded.location,
         language = excluded.language,
         verificationStatus = excluded.verificationStatus,
+        identityVerificationStatus = excluded.identityVerificationStatus,
+        identityVerificationProvider = excluded.identityVerificationProvider,
+        identityVerificationRef = excluded.identityVerificationRef,
+        identityVerifiedAt = excluded.identityVerifiedAt,
+        authorizationVerificationStatus = excluded.authorizationVerificationStatus,
+        authorizationVerificationProvider = excluded.authorizationVerificationProvider,
+        authorizationVerificationRef = excluded.authorizationVerificationRef,
+        authorizationVerifiedAt = excluded.authorizationVerifiedAt,
+        serviceRadiusKm = excluded.serviceRadiusKm,
+        serviceArea = excluded.serviceArea,
+        acceptedMaterials = excluded.acceptedMaterials,
+        pickupAvailable = excluded.pickupAvailable,
+        isAvailable = excluded.isAvailable,
+        latitude = excluded.latitude,
+        longitude = excluded.longitude,
         remoteId = excluded.remoteId,
         syncStatus = excluded.syncStatus,
         updatedAt = excluded.updatedAt`,
@@ -49,6 +88,21 @@ export const userRepository = {
         location,
         user.language || 'hi',
         verificationStatus,
+        identityVerificationStatus,
+        identityVerificationProvider,
+        identityVerificationRef,
+        identityVerifiedAt,
+        authorizationVerificationStatus,
+        authorizationVerificationProvider,
+        authorizationVerificationRef,
+        authorizationVerifiedAt,
+        serviceRadiusKm,
+        serviceArea,
+        acceptedMaterials,
+        pickupAvailable,
+        isAvailable,
+        latitude,
+        longitude,
         user.remoteId || null,
         user.syncStatus || 'synced',
         user.createdAt || now,
@@ -101,27 +155,16 @@ export const userRepository = {
    * Updates profile fields.
    */
   async updateProfile(id: string, updates: Partial<User>): Promise<void> {
-    const db = await getDatabase();
     const existing = await this.getUserById(id);
     if (!existing) return;
 
-    if (existing.role === 'collector') {
-      const merged: CollectorProfile = {
-        ...existing,
-        ...(updates as Partial<CollectorProfile>),
-        role: 'collector',
-        updatedAt: new Date().toISOString(),
-      };
-      await this.saveUser(merged);
-    } else {
-      const merged: RecyclerProfile = {
-        ...existing,
-        ...(updates as Partial<RecyclerProfile>),
-        role: 'recycler',
-        updatedAt: new Date().toISOString(),
-      };
-      await this.saveUser(merged);
-    }
+    const merged = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    } as User;
+
+    await this.saveUser(merged);
   },
 
   /**
@@ -129,6 +172,15 @@ export const userRepository = {
    */
   mapRowToUser(row: any): User {
     const role = (row.role as UserRole) || 'collector';
+    let acceptedMaterialsList: string[] = [];
+    if (row.acceptedMaterials) {
+      try {
+        acceptedMaterialsList = JSON.parse(row.acceptedMaterials);
+      } catch {
+        acceptedMaterialsList = [];
+      }
+    }
+
     const base = {
       id: row.id,
       phoneNumber: row.phoneNumber,
@@ -138,16 +190,22 @@ export const userRepository = {
       updatedAt: row.updatedAt,
       remoteId: row.remoteId || undefined,
       syncStatus: row.syncStatus,
+      identityVerificationStatus: row.identityVerificationStatus || 'not_started',
+      identityVerificationProvider: row.identityVerificationProvider || undefined,
+      identityVerificationRef: row.identityVerificationRef || undefined,
+      identityVerifiedAt: row.identityVerifiedAt || undefined,
+      latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : undefined,
+      longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : undefined,
     };
 
     if (role === 'collector') {
       const collector: CollectorProfile = {
         ...base,
         role: 'collector',
-        name: row.name || 'कबाड़ी मित्र',
-        location: row.location || 'पुणे, महाराष्ट्र',
-        operatingCity: row.location || 'पुणे',
-        verificationStatus: row.verificationStatus || 'verified',
+        name: row.name || undefined,
+        location: row.location || undefined,
+        operatingCity: row.location || undefined,
+        verificationStatus: row.verificationStatus || 'pending',
         rating: 4.8,
         totalTransactions: 0,
         safetyScore: 95,
@@ -157,16 +215,24 @@ export const userRepository = {
       const recycler: RecyclerProfile = {
         ...base,
         role: 'recycler',
-        firmName: row.businessName || 'Green Earth Recycling',
-        businessName: row.businessName || 'Green Earth Recycling',
-        contactName: row.contactName || 'व्यवस्थापक',
-        contactPerson: row.contactName || 'व्यवस्थापक',
-        facilityAddress: row.address || 'भोसरी MIDC, पुणे',
-        address: row.address || 'भोसरी MIDC, पुणे',
-        city: row.location || 'पुणे',
-        isVerified: true,
-        verificationStatus: row.verificationStatus || 'verified',
-        serviceRadiusKm: 25,
+        firmName: row.businessName || undefined,
+        businessName: row.businessName || undefined,
+        contactName: row.contactName || undefined,
+        contactPerson: row.contactName || undefined,
+        facilityAddress: row.address || undefined,
+        address: row.address || undefined,
+        city: row.location || undefined,
+        isVerified: row.authorizationVerificationStatus === 'verified' && row.identityVerificationStatus === 'verified',
+        verificationStatus: row.verificationStatus || 'pending',
+        authorizationVerificationStatus: row.authorizationVerificationStatus || 'not_started',
+        authorizationVerificationProvider: row.authorizationVerificationProvider || undefined,
+        authorizationVerificationRef: row.authorizationVerificationRef || undefined,
+        authorizationVerifiedAt: row.authorizationVerifiedAt || undefined,
+        serviceRadiusKm: row.serviceRadiusKm !== null && row.serviceRadiusKm !== undefined ? Number(row.serviceRadiusKm) : 25,
+        serviceArea: row.serviceArea || undefined,
+        acceptedMaterials: acceptedMaterialsList,
+        pickupAvailable: row.pickupAvailable !== null ? Boolean(row.pickupAvailable) : true,
+        isAvailable: row.isAvailable !== null ? Boolean(row.isAvailable) : true,
       };
       return recycler;
     }

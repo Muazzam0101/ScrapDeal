@@ -2,26 +2,109 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
+import { VerificationStatus } from '../types';
 
 interface VerificationBadgeProps {
+  status?: VerificationStatus;
+  type?: 'identity' | 'authorization' | 'custom';
   label?: string;
   size?: 'small' | 'medium';
 }
 
 export const VerificationBadge: React.FC<VerificationBadgeProps> = ({
-  label = 'Authorized Recycler',
+  status = 'pending',
+  type = 'identity',
+  label,
   size = 'small',
 }) => {
   const isSmall = size === 'small';
 
+  // Determine label if not explicitly provided
+  let badgeLabel = label;
+  if (!badgeLabel) {
+    if (type === 'identity') {
+      switch (status) {
+        case 'verified':
+          badgeLabel = 'पहचान सत्यापित (Identity Verified)';
+          break;
+        case 'pending':
+          badgeLabel = 'सत्यापन लंबित (Verification Pending)';
+          break;
+        case 'failed':
+          badgeLabel = 'सत्यापन विफल (Failed)';
+          break;
+        case 'expired':
+          badgeLabel = 'सत्यापन समाप्त (Expired)';
+          break;
+        case 'not_started':
+        default:
+          badgeLabel = 'अपुष्ट (Not Verified)';
+          break;
+      }
+    } else if (type === 'authorization') {
+      switch (status) {
+        case 'verified':
+          badgeLabel = 'अधिकृत रीसाइक्लर (Authorization Verified)';
+          break;
+        case 'pending':
+          badgeLabel = 'प्राधिकरण लंबित (Auth Pending)';
+          break;
+        case 'failed':
+          badgeLabel = 'प्राधिकरण अस्वीकृत (Auth Rejected)';
+          break;
+        case 'expired':
+          badgeLabel = 'लाइसेंस समाप्त (License Expired)';
+          break;
+        case 'not_started':
+        default:
+          badgeLabel = 'प्राधिकरण नहीं (No Regulatory Auth)';
+          break;
+      }
+    } else {
+      badgeLabel = 'सत्यापन स्थिति (Status)';
+    }
+  }
+
+  // Determine styling based on verification status
+  let bgColor = '#F1F5F9';
+  let textColor = '#64748B';
+  let iconName: any = 'help-circle-outline';
+  let iconColor = '#64748B';
+
+  if (status === 'verified') {
+    bgColor = colors.primaryPale;
+    textColor = colors.primaryDark;
+    iconName = 'shield-checkmark';
+    iconColor = colors.primary;
+  } else if (status === 'pending') {
+    bgColor = '#FEF3C7';
+    textColor = '#B45309';
+    iconName = 'time-outline';
+    iconColor = '#D97706';
+  } else if (status === 'failed') {
+    bgColor = '#FEE2E2';
+    textColor = '#B91C1C';
+    iconName = 'close-circle-outline';
+    iconColor = '#DC2626';
+  } else if (status === 'expired') {
+    bgColor = '#F3F4F6';
+    textColor = '#4B5563';
+    iconName = 'alert-circle-outline';
+    iconColor = '#6B7280';
+  }
+
   return (
-    <View style={[styles.container, isSmall && styles.containerSmall]}>
-      <Ionicons
-        name="checkmark-circle"
-        size={isSmall ? 14 : 16}
-        color={colors.primary}
-      />
-      <Text style={[styles.text, isSmall && styles.textSmall]}>{label}</Text>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: bgColor },
+        isSmall && styles.containerSmall,
+      ]}
+    >
+      <Ionicons name={iconName} size={isSmall ? 13 : 16} color={iconColor} />
+      <Text style={[styles.text, { color: textColor }, isSmall && styles.textSmall]}>
+        {badgeLabel}
+      </Text>
     </View>
   );
 };
@@ -30,7 +113,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryPale,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
@@ -38,14 +120,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   containerSmall: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
   },
   text: {
     ...typography.badge,
-    color: colors.primaryDark,
+    fontWeight: '600',
   },
   textSmall: {
-    fontSize: 11,
+    fontSize: 10,
   },
 });

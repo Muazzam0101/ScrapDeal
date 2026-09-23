@@ -2,7 +2,7 @@ export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export type OperationType = 'CREATE' | 'UPDATE' | 'DELETE';
 
-export type EntityType = 'material_lot' | 'user' | 'offer' | 'transaction' | 'deal' | 'handover' | 'photo';
+export type EntityType = 'material_lot' | 'user' | 'offer' | 'transaction' | 'deal' | 'handover' | 'material_price' | 'photo';
 
 export interface SyncMetadata {
   localId: string;

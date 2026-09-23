@@ -25,6 +25,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { LotCard } from '../../components/LotCard';
+import { VerificationBadge } from '../../components/VerificationBadge';
 import { Offer, Deal, Transaction } from '../../types';
 
 interface CollectorDealsScreenProps {
@@ -252,9 +253,14 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                         return (
                           <View key={offer.localId || offer.id} style={styles.offerCard}>
                             <View style={styles.offerHeaderRow}>
-                              <Text style={styles.offerRecyclerName}>
-                                {offer.recyclerName || 'पंजीकृत रीसाइक्लर'}
-                              </Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.offerRecyclerName}>
+                                  {offer.recyclerName || 'पंजीकृत रीसाइक्लर'}
+                                </Text>
+                                <View style={{ flexDirection: 'row', gap: 4, marginTop: 2 }}>
+                                  <VerificationBadge type="authorization" status="verified" size="small" />
+                                </View>
+                              </View>
                               <View
                                 style={[
                                   styles.offerBadge,
@@ -272,12 +278,19 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                               </View>
                             </View>
 
+                            {/* Transparent Price Calculation Breakdown */}
                             <View style={styles.offerDetailsRow}>
                               <Text style={styles.offerRate}>
                                 ₹{offer.ratePerKg} / किग्रा
                               </Text>
                               <Text style={styles.offerTotal}>
                                 कुल: ₹{offer.totalAmount}
+                              </Text>
+                            </View>
+
+                            <View style={styles.offerBreakdownBanner}>
+                              <Text style={styles.offerBreakdownText}>
+                                पारदर्शी गणना: {lot.weightKg} kg × ₹{offer.ratePerKg} = ₹{offer.totalAmount}
                               </Text>
                             </View>
 
@@ -528,6 +541,20 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
     color: colors.primary,
+  },
+  offerBreakdownBanner: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.xs,
+  },
+  offerBreakdownText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   offerComment: {
     fontSize: 11,

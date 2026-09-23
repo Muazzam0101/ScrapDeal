@@ -14,6 +14,21 @@ export const CREATE_TABLES_SQL = `
     location TEXT,
     language TEXT DEFAULT 'hi',
     verificationStatus TEXT DEFAULT 'pending',
+    identityVerificationStatus TEXT DEFAULT 'not_started',
+    identityVerificationProvider TEXT,
+    identityVerificationRef TEXT,
+    identityVerifiedAt TEXT,
+    authorizationVerificationStatus TEXT DEFAULT 'not_started',
+    authorizationVerificationProvider TEXT,
+    authorizationVerificationRef TEXT,
+    authorizationVerifiedAt TEXT,
+    serviceRadiusKm REAL DEFAULT 25,
+    serviceArea TEXT,
+    acceptedMaterials TEXT,
+    pickupAvailable INTEGER DEFAULT 1,
+    isAvailable INTEGER DEFAULT 1,
+    latitude REAL,
+    longitude REAL,
     remoteId TEXT,
     syncStatus TEXT DEFAULT 'synced',
     createdAt TEXT NOT NULL,
@@ -146,6 +161,28 @@ export const CREATE_TABLES_SQL = `
     updatedAt TEXT NOT NULL
   );
 
+  -- Material Prices table
+  CREATE TABLE IF NOT EXISTS material_prices (
+    localId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    materialCategory TEXT NOT NULL,
+    materialName TEXT,
+    recyclerId TEXT,
+    recyclerName TEXT,
+    ratePerKg REAL NOT NULL,
+    minRatePerKg REAL,
+    maxRatePerKg REAL,
+    effectiveFrom TEXT NOT NULL,
+    effectiveUntil TEXT,
+    locationCity TEXT,
+    locationArea TEXT,
+    sourceType TEXT NOT NULL DEFAULT 'recycler_rate', -- 'recycler_rate', 'completed_transaction', 'market_reference'
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    lastSyncedAt TEXT
+  );
+
   -- Indices for faster lookups
   CREATE INDEX IF NOT EXISTS idx_lots_collector ON material_lots(collectorId);
   CREATE INDEX IF NOT EXISTS idx_lots_status ON material_lots(status);
@@ -157,4 +194,6 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_handovers_deal ON handovers(dealId);
   CREATE INDEX IF NOT EXISTS idx_tx_collector ON transactions(collectorId);
   CREATE INDEX IF NOT EXISTS idx_tx_recycler ON transactions(recyclerId);
+  CREATE INDEX IF NOT EXISTS idx_prices_material ON material_prices(materialCategory);
+  CREATE INDEX IF NOT EXISTS idx_prices_recycler ON material_prices(recyclerId);
 `;

@@ -113,7 +113,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: 'recycler',
           firmName: (user as any).firmName || 'Green Earth Recycling',
           businessName: (user as any).businessName || 'Green Earth Recycling',
-          isVerified: true,
+          identityVerificationStatus: (user as any).identityVerificationStatus || 'not_started',
+          authorizationVerificationStatus: (user as any).authorizationVerificationStatus || 'not_started',
         };
         userRepository.saveUser(updated);
         set({ role, currentUser: updated });

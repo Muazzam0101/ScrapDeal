@@ -246,4 +246,15 @@ export const hi: typeof en = {
   handoverCompleted: 'हैंडओवर पूर्ण',
   confirmReceipt: 'प्राप्ति की पुष्टि करें',
   handOverScrap: 'कबाड़ हैंडओवर करें',
+
+  // Phase 4 Verification & Matching Keys
+  serviceAreaRadius: 'सेवा क्षेत्र दायरा',
+  acceptedMaterialsTitle: 'स्वीकृत सामग्रियां',
+  distanceAway: 'दूर',
+  identityVerifiedBadge: 'पहचान सत्यापित',
+  authVerifiedBadge: 'अधिकृत रीसाइक्लर',
+  verificationPendingBadge: 'सत्यापन लंबित',
+  notVerifiedBadge: 'अपुष्ट',
+  observedRate: 'अवलोकित दर',
+  cachedPrice: 'कैश्ड मूल्य',
 };

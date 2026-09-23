@@ -118,7 +118,11 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
             </View>
             <View style={styles.firmInfo}>
               <Text style={styles.firmName}>{firmName}</Text>
-              <VerificationBadge label={t('authorizedRecycler')} size="small" />
+              <VerificationBadge
+                type="authorization"
+                status={(currentUser as any)?.authorizationVerificationStatus || 'not_started'}
+                size="small"
+              />
               <Text style={styles.firmLocation}>
                 <Ionicons name="location-outline" size={13} color={colors.textSecondary} /> {firmLocation}
               </Text>

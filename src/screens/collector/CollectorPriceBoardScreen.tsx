@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   SafeAreaView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePriceStore } from '../../store/usePriceStore';
+import { useLocationStore } from '../../store/useLocationStore';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { AudioSpeakerButton } from '../../components/AudioSpeakerButton';
@@ -23,15 +26,21 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
   navigation,
 }) => {
   const { t } = useLanguage();
-  const [selectedCity, setSelectedCity] = useState('पुणे, महाराष्ट्र');
+  const { priceBoardItems, loadPriceBoard, isLoading } = usePriceStore();
+  const { selectedCity, refreshLocation } = useLocationStore();
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadPriceBoard();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 600);
+    await loadPriceBoard();
+    setRefreshing(false);
   };
+
+  const activeItemsWithPrice = priceBoardItems.filter((i) => i.latestRatePerKg !== undefined);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -51,23 +60,87 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
       >
         {/* Location Selector Bar + Audio Button */}
         <View style={styles.locationBar}>
-          <TouchableOpacity style={styles.locationSelector} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.locationSelector}
+            activeOpacity={0.7}
+            onPress={refreshLocation}
+          >
             <Ionicons name="location-sharp" size={20} color={colors.primary} />
             <Text style={styles.locationText}>{selectedCity}</Text>
-            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <AudioSpeakerButton label={t('listen')} size="small" />
         </View>
 
-        {/* Dynamic Empty State - STRICT ZERO MOCK DATA */}
-        <EmptyState
-          icon="trending-up-outline"
-          title="आज की कीमतें उपलब्ध नहीं हैं"
-          description={t('pricesEmptyDesc')}
-          actionTitle="ताजा भाव प्राप्त करें (Refresh)"
-          onActionPress={handleRefresh}
-        />
+        {/* Dynamic List of Real Observed Prices or Clean Empty State */}
+        {activeItemsWithPrice.length === 0 ? (
+          <EmptyState
+            icon="trending-up-outline"
+            title="वर्तमान में कोई भाव उपलब्ध नहीं है"
+            description="जब सत्यापित रीसाइक्लर्स अपनी दरें दर्ज करेंगे, तो वे यहां दिखाई देंगी। (Price discovery displays observed rates once available)"
+            actionTitle="ताजा भाव प्राप्त करें (Refresh)"
+            onActionPress={handleRefresh}
+          />
+        ) : (
+          <View style={styles.pricesContainer}>
+            {activeItemsWithPrice.map((item) => {
+              const formattedDate = item.lastUpdated
+                ? new Date(item.lastUpdated).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : null;
+
+              return (
+                <View key={item.category} style={styles.priceCard}>
+                  <View style={styles.priceCardTop}>
+                    <View style={[styles.iconCircle, { backgroundColor: item.color + '20' }]}>
+                      <MaterialCommunityIcons name={item.iconName as any} size={26} color={item.color} />
+                    </View>
+                    <View style={styles.categoryInfo}>
+                      <Text style={styles.categoryTitle}>{item.categoryLabel}</Text>
+                      <Text style={styles.recyclerCountText}>
+                        {item.activeRecyclersCount > 0
+                          ? `${item.activeRecyclersCount} रीसाइक्लर सक्रिय`
+                          : 'बाजार संदर्भ'}
+                      </Text>
+                    </View>
+                    <View style={styles.rateContainer}>
+                      <Text style={styles.rateValue}>₹{item.latestRatePerKg}</Text>
+                      <Text style={styles.rateUnit}>/ किग्रा (kg)</Text>
+                    </View>
+                  </View>
+
+                  {/* Range and Freshness Row */}
+                  <View style={styles.priceCardBottom}>
+                    {item.minObservedRate && item.maxObservedRate && item.minObservedRate !== item.maxObservedRate ? (
+                      <Text style={styles.rangeText}>
+                        रेंज: ₹{item.minObservedRate} - ₹{item.maxObservedRate}
+                      </Text>
+                    ) : (
+                      <Text style={styles.rangeText}>अवलोकित दर (Observed Rate)</Text>
+                    )}
+
+                    {item.isStale ? (
+                      <View style={styles.staleBadge}>
+                        <Ionicons name="time-outline" size={12} color="#D97706" />
+                        <Text style={styles.staleBadgeText}>
+                          कैश्ड मूल्य (Cached: {formattedDate || 'Old'})
+                        </Text>
+                      </View>
+                    ) : formattedDate ? (
+                      <Text style={styles.freshText}>
+                        अपडेट: {formattedDate}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -98,9 +171,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   locationText: {
-    ...typography.h4,
+    ...typography.bodyBold,
     color: colors.text,
+  },
+  pricesContainer: {
+    gap: spacing.sm,
+  },
+  priceCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  priceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  categoryInfo: {
+    flex: 1,
+  },
+  categoryTitle: {
+    ...typography.bodyBold,
+    color: colors.text,
+  },
+  recyclerCountText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  rateContainer: {
+    alignItems: 'flex-end',
+  },
+  rateValue: {
+    ...typography.h3,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  rateUnit: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  priceCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  rangeText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  freshText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  staleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  staleBadgeText: {
+    fontSize: 10,
+    color: '#B45309',
+    fontWeight: '600',
   },
 });

@@ -246,4 +246,15 @@ export const mr: typeof en = {
   handoverCompleted: 'हँडओव्हर पूर्ण',
   confirmReceipt: 'पावतीची पुष्टी करा',
   handOverScrap: 'भंगार हँडओव्हर करा',
+
+  // Phase 4 Verification & Matching Keys
+  serviceAreaRadius: 'सेवा क्षेत्र त्रिज्या',
+  acceptedMaterialsTitle: 'स्वीकृत साहित्य',
+  distanceAway: 'दूर',
+  identityVerifiedBadge: 'ओळख पडताळणी',
+  authVerifiedBadge: 'अधिकृत रिसायकलर',
+  verificationPendingBadge: 'पडताळणी प्रलंबित',
+  notVerifiedBadge: 'अपुष्ट',
+  observedRate: 'अवलोकित दर',
+  cachedPrice: 'कॅश केलेले दर',
 };

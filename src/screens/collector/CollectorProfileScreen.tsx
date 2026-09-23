@@ -13,8 +13,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { AppHeader } from '../../components/AppHeader';
+import { VerificationBadge } from '../../components/VerificationBadge';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { verificationService } from '../../services/verification/verificationProvider';
+import { userRepository } from '../../services/sqlite/repositories/userRepository';
 
 interface CollectorProfileScreenProps {
   navigation: any;
@@ -25,16 +28,36 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
 }) => {
   const { t } = useLanguage();
   const { switchRole: switchContextRole } = useRole();
-  const { currentUser, switchRole: switchAuthRole } = useAuthStore();
+  const { currentUser, switchRole: switchAuthRole, updateProfile } = useAuthStore();
+  const [submittingVerification, setSubmittingVerification] = React.useState(false);
 
   const handleRoleSwitch = () => {
     switchContextRole();
     switchAuthRole();
   };
 
+  const handleStartIdentityVerification = async () => {
+    if (!currentUser) return;
+    setSubmittingVerification(true);
+    try {
+      const res = await verificationService.initiateIdentityVerification(currentUser.id, 'collector');
+      await updateProfile({
+        identityVerificationStatus: res.status,
+        identityVerificationProvider: res.provider,
+        identityVerificationRef: res.referenceId,
+        identityVerifiedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('[CollectorProfile] Verification error:', e);
+    } finally {
+      setSubmittingVerification(false);
+    }
+  };
+
   const displayName = (currentUser as any)?.name || 'कबाड़ी मित्र';
   const displayLocation = (currentUser as any)?.location || t('collectorLocation');
   const displayPhone = currentUser?.phoneNumber || '+91 98765 43210';
+  const idStatus = currentUser?.identityVerificationStatus || 'not_started';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -59,10 +82,34 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
             <Ionicons name="location-sharp" size={14} color={colors.primary} /> {displayLocation}
           </Text>
 
-          <View style={styles.verificationTag}>
-            <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
-            <Text style={styles.verificationTagText}>सत्यापित कबाड़ीवाला (Verified)</Text>
+          <View style={{ marginTop: spacing.md }}>
+            <VerificationBadge type="identity" status={idStatus} size="medium" />
           </View>
+        </View>
+
+        {/* Identity Verification Section */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>पहचान सत्यापन (Identity Verification)</Text>
+          <Text style={styles.sectionDesc}>
+            {idStatus === 'verified'
+              ? 'आपकी पहचान डिजिटल रूप से सत्यापित है। (Identity is verified)'
+              : idStatus === 'pending'
+              ? 'सत्यापन अनुरोध प्रक्रियाधीन है। (Verification is under digital review)'
+              : 'अधिक रीसाइक्लर्स से बेहतर मूल्य प्राप्त करने के लिए पहचान सत्यापन शुरू करें।'}
+          </Text>
+          {idStatus !== 'verified' && (
+            <PrimaryButton
+              title={
+                idStatus === 'pending'
+                  ? 'सत्यापन स्थिति जांचें (Check Status)'
+                  : 'पहचान सत्यापन शुरू करें (Verify Identity)'
+              }
+              variant={idStatus === 'pending' ? 'secondary' : 'primary'}
+              icon="shield-checkmark-outline"
+              loading={submittingVerification}
+              onPress={handleStartIdentityVerification}
+            />
+          )}
         </View>
 
         {/* Language Selection Card */}

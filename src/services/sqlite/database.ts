@@ -18,11 +18,40 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     dbInstance = await SQLite.openDatabaseAsync(DB_NAME);
     // Execute DDL schema
     await dbInstance.execAsync(CREATE_TABLES_SQL);
+    await runPhase4Migrations(dbInstance);
     isInitialized = true;
     return dbInstance;
   } catch (error) {
     console.error('[SQLite] Failed to initialize database:', error);
     throw error;
+  }
+}
+
+async function runPhase4Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
+  const userColumns = [
+    'identityVerificationStatus TEXT DEFAULT "not_started"',
+    'identityVerificationProvider TEXT',
+    'identityVerificationRef TEXT',
+    'identityVerifiedAt TEXT',
+    'authorizationVerificationStatus TEXT DEFAULT "not_started"',
+    'authorizationVerificationProvider TEXT',
+    'authorizationVerificationRef TEXT',
+    'authorizationVerifiedAt TEXT',
+    'serviceRadiusKm REAL DEFAULT 25',
+    'serviceArea TEXT',
+    'acceptedMaterials TEXT',
+    'pickupAvailable INTEGER DEFAULT 1',
+    'isAvailable INTEGER DEFAULT 1',
+    'latitude REAL',
+    'longitude REAL',
+  ];
+
+  for (const col of userColumns) {
+    try {
+      await db.execAsync(`ALTER TABLE users ADD COLUMN ${col};`);
+    } catch {
+      // Column likely already exists
+    }
   }
 }
 

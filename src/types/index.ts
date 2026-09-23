@@ -5,5 +5,6 @@ export * from './offer';
 export * from './transaction';
 export * from './deal';
 export * from './handover';
+export * from './price';
 export * from './navigation';
 export * from './sync';

@@ -15,8 +15,40 @@ service cloud.firestore {
     // Users can read other user profiles (for deal discovery) but only write their own
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isOwner(userId);
+
+      // On create, verification status must not be client-fabricated as verified
+      allow create: if isOwner(userId)
+        && (!request.resource.data.keys().hasAny(['identityVerificationStatus', 'authorizationVerificationStatus', 'isVerified'])
+            || (request.resource.data.identityVerificationStatus in ['not_started', 'pending']
+                && request.resource.data.authorizationVerificationStatus in ['not_started', 'pending']
+                && request.resource.data.isVerified != true));
+
+      // On update, clients cannot modify or tamper with verification statuses
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'identityVerificationStatus', 'authorizationVerificationStatus', 'isVerified', 'verificationStatus'
+        ]);
+
       allow delete: if false; // Profiles cannot be arbitrarily deleted by clients
+    }
+
+    // Material Prices (Recycler Rates & Historical Prices)
+    match /materialPrices/{priceId} {
+      // Authenticated users can read prices for marketplace transparency
+      allow read: if isAuthenticated();
+
+      // Only the offering recycler can create their own rate
+      allow create: if isAuthenticated()
+        && request.resource.data.recyclerId == request.auth.uid;
+
+      // Only the owning recycler can update their own rate (cannot modify another recycler's rate)
+      allow update: if isAuthenticated()
+        && resource.data.recyclerId == request.auth.uid
+        && request.resource.data.recyclerId == request.auth.uid;
+
+      // Only the owning recycler can delete their rate
+      allow delete: if isAuthenticated()
+        && resource.data.recyclerId == request.auth.uid;
     }
 
     // Material Lots collection

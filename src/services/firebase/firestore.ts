@@ -12,7 +12,7 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { MaterialLot, User, Offer, Transaction } from '../../types';
+import { MaterialLot, User, Offer, Transaction, MaterialPrice } from '../../types';
 
 export const firestoreService = {
   /**
@@ -291,5 +291,44 @@ export const firestoreService = {
       id: d.id,
       remoteId: d.id,
     } as Transaction));
+  },
+
+  /**
+   * Saves or updates a MaterialPrice document in Firestore.
+   */
+  async savePriceDoc(price: MaterialPrice): Promise<string> {
+    if (!isConfigured) {
+      return price.remoteId || `REMOTE-${price.id || price.localId}`;
+    }
+
+    const payload = {
+      ...price,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    };
+
+    const priceId = price.remoteId || price.localId;
+    const priceRef = doc(db, 'materialPrices', priceId);
+    await setDoc(priceRef, payload, { merge: true });
+    return priceId;
+  },
+
+  /**
+   * Retrieves all active material prices from Firestore.
+   */
+  async getAllPriceDocs(): Promise<MaterialPrice[]> {
+    if (!isConfigured) return [];
+    try {
+      const q = query(collection(db, 'materialPrices'), orderBy('updatedAt', 'desc'));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({
+        ...d.data(),
+        id: d.id,
+        remoteId: d.id,
+      } as MaterialPrice));
+    } catch (e) {
+      console.warn('[Firestore] Failed to get price docs:', e);
+      return [];
+    }
   },
 };

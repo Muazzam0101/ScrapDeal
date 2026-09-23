@@ -13,12 +13,13 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCreateLot } from '../../../context/CreateLotContext';
-import { useLotStore } from '../../../store/useLotStore';
 import { matchingService, MatchingResult } from '../../../services/recycler/matchingService';
 import { lotRepository } from '../../../services/sqlite/repositories/lotRepository';
+import { useLocationStore } from '../../../store/useLocationStore';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 import { EmptyState } from '../../../components/EmptyState';
+import { VerificationBadge } from '../../../components/VerificationBadge';
 
 interface RecyclerMatchingScreenProps {
   navigation: any;
@@ -31,13 +32,16 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
 }) => {
   const { t } = useLanguage();
   const { categoryId, weightKg, createdLotId } = useCreateLot();
+  const { coords, hasPermission, requestPermission, permissionDenied, selectedCity } = useLocationStore();
+
   const [matches, setMatches] = useState<MatchingResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [requestingLoc, setRequestingLoc] = useState(false);
 
   const lotId = route.params?.lotId || createdLotId;
 
-  const loadMatches = async () => {
+  const loadMatches = async (userCoords = coords) => {
     setLoading(true);
     try {
       let lot = route.params?.lot;
@@ -59,7 +63,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
         };
       }
 
-      const results = await matchingService.findSuitableRecyclers(lot);
+      const results = await matchingService.findSuitableRecyclers(lot, userCoords);
       setMatches(results);
     } catch (e) {
       console.warn('[RecyclerMatching] Error finding matches:', e);
@@ -72,15 +76,23 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
 
   useEffect(() => {
     loadMatches();
-  }, [lotId]);
+  }, [lotId, coords]);
 
   const onRefresh = () => {
     setRefreshing(true);
     loadMatches();
   };
 
+  const handleEnableLocation = async () => {
+    setRequestingLoc(true);
+    const granted = await requestPermission();
+    setRequestingLoc(false);
+    if (granted) {
+      loadMatches();
+    }
+  };
+
   const handleGoToDeals = () => {
-    // Navigate to Collector Deals tab
     navigation.navigate('CollectorRoot', { screen: 'CollectorDeals' });
   };
 
@@ -103,8 +115,45 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
       >
         <Text style={styles.screenHeading}>{t('nearbyRecyclers')}</Text>
         <Text style={styles.screenSub}>
-          नियम-आधारित मिलान: केवल पंजीकृत और अनुकूल रीसाइक्लर ही प्रदर्शित हैं।
+          नियम-आधारित पारदर्शी मिलान: सामग्री, सेवा क्षेत्र और दूरी के आधार पर। (Rule-based transparent matching)
         </Text>
+
+        {/* Location Banner (Real GPS or Manual Non-blocking Fallback) */}
+        <View style={styles.locationBanner}>
+          <View style={styles.locationBannerLeft}>
+            <Ionicons
+              name={hasPermission ? 'location' : 'location-outline'}
+              size={22}
+              color={hasPermission ? colors.primary : '#D97706'}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationBannerTitle}>
+                {hasPermission
+                  ? 'सटीक दूरी सक्रिय (Accurate Distance Enabled)'
+                  : 'स्थान अनुमति उपलब्ध नहीं (Coarse Area Mode)'}
+              </Text>
+              <Text style={styles.locationBannerSub}>
+                {hasPermission
+                  ? 'निकटतम रीसाइक्लर्स की वास्तविक दूरी दिखाई जा रही है।'
+                  : `${selectedCity} — सटीक दूरी हेतु लोकेशन चालू करें।`}
+              </Text>
+            </View>
+          </View>
+
+          {!hasPermission && (
+            <TouchableOpacity
+              style={styles.enableLocBtn}
+              onPress={handleEnableLocation}
+              disabled={requestingLoc}
+            >
+              {requestingLoc ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.enableLocBtnText}>सक्रिय करें (Enable)</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -115,16 +164,16 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
           <EmptyState
             icon="business-outline"
             title="कोई उपयुक्त रीसाइक्लर नहीं मिला"
-            description="वर्तमान में इस क्षेत्र या सामग्री के लिए कोई रीसाइक्लर पंजीकृत नहीं है। जब कोई रीसाइक्लर आपका लॉट देखकर ऑफर भेजेगा, तो वह 'सौदे' में दिखाई देगा।"
+            description="वर्तमान में इस सामग्री या सेवा क्षेत्र के लिए कोई रीसाइक्लर उपलब्ध नहीं है। जब कोई रीसाइक्लर आपका लॉट देखकर ऑफर भेजेगा, तो वह 'सौदे' में दिखाई देगा।"
             actionTitle="पुनः खोजें (Refresh)"
-            onActionPress={loadMatches}
+            onActionPress={() => loadMatches()}
           />
         ) : (
           <View style={styles.matchesList}>
             <Text style={styles.matchCount}>
               {matches.length} अनुकूल रीसाइक्लर मिले:
             </Text>
-            {matches.map(({ recycler, matchReasons }, idx) => (
+            {matches.map(({ recycler, matchReasons, distanceText }, idx) => (
               <View key={recycler.id || idx} style={styles.recyclerCard}>
                 <View style={styles.recyclerHeader}>
                   <View style={styles.recyclerAvatar}>
@@ -134,14 +183,35 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
                     <Text style={styles.firmName}>
                       {recycler.firmName || recycler.businessName || 'पंजीकृत रीसाइक्लर'}
                     </Text>
-                    <Text style={styles.locationText}>
-                      <Ionicons name="location-outline" size={14} color={colors.textMuted} />{' '}
-                      {recycler.city || recycler.serviceArea || 'महाराष्ट्र'}
-                    </Text>
+                    <View style={styles.locDistanceRow}>
+                      <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                      <Text style={styles.locationText}>
+                        {recycler.city || recycler.serviceArea || 'पुणे'}
+                      </Text>
+                      {distanceText && (
+                        <View style={styles.distanceBadge}>
+                          <Text style={styles.distanceBadgeText}>{distanceText}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
 
-                {/* Match badges */}
+                {/* Separate Verification Badges */}
+                <View style={styles.verificationRow}>
+                  <VerificationBadge
+                    type="authorization"
+                    status={recycler.authorizationVerificationStatus || 'not_started'}
+                    size="small"
+                  />
+                  <VerificationBadge
+                    type="identity"
+                    status={recycler.identityVerificationStatus || 'not_started'}
+                    size="small"
+                  />
+                </View>
+
+                {/* Transparent Match Badges */}
                 <View style={styles.badgesRow}>
                   {matchReasons.map((reason, rIdx) => (
                     <View key={rIdx} style={styles.reasonBadge}>
@@ -179,13 +249,54 @@ const styles = StyleSheet.create({
   },
   screenHeading: {
     ...typography.h2,
-    color: colors.textPrimary,
+    color: colors.text,
     marginBottom: spacing.xs,
   },
   screenSub: {
     ...typography.bodySecondary,
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.md,
+  },
+  locationBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  locationBannerTitle: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  locationBannerSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  enableLocBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryPale,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  enableLocBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryDark,
   },
   loadingContainer: {
     paddingVertical: spacing.huge,
@@ -197,12 +308,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   matchesList: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   matchCount: {
     ...typography.caption,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.text,
     marginBottom: spacing.md,
   },
   recyclerCard: {
@@ -216,48 +327,68 @@ const styles = StyleSheet.create({
   recyclerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   recyclerAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E3FCEF',
+    backgroundColor: colors.primaryPale,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   recyclerInfo: {
     flex: 1,
   },
   firmName: {
     ...typography.bodyBold,
-    color: colors.textPrimary,
+    color: colors.text,
   },
-  locationText: {
-    ...typography.caption,
-    color: colors.textMuted,
+  locDistanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: 2,
   },
-  badgesRow: {
+  locationText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  distanceBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.xs,
+  },
+  distanceBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  verificationRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+    marginVertical: spacing.xs,
+  },
+  badgesRow: {
+    flexDirection: 'column',
+    gap: 4,
     marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
   },
   reasonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E3FCEF',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
     gap: 4,
   },
   reasonText: {
     fontSize: 11,
-    color: '#00875A',
-    fontWeight: '600',
+    color: colors.textSecondary,
   },
   bottomBar: {
     padding: spacing.lg,

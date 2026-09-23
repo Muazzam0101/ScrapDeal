@@ -12,6 +12,7 @@
     "expo": "~57.0.24",
     "expo-file-system": "~57.0.7",
     "expo-image-picker": "~57.0.19",
+    "expo-location": "~57.0.19",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.19.0",
@@ -33,10 +34,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test_phase3.mjs",
+    "test": "node scripts/test_phase4.mjs",
     "test:phase2": "node scripts/test_scenarios.mjs",
     "test:phase3": "node scripts/test_phase3.mjs",
-    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs"
+    "test:phase4": "node scripts/test_phase4.mjs",
+    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs && node scripts/test_phase4.mjs"
   },
   "private": true
 }

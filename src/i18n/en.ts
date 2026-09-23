@@ -244,4 +244,15 @@ export const en = {
   handoverCompleted: 'Handover Completed',
   confirmReceipt: 'Confirm Receipt',
   handOverScrap: 'Hand Over Scrap',
+
+  // Phase 4 Verification & Matching Keys
+  serviceAreaRadius: 'Service Area Radius',
+  acceptedMaterialsTitle: 'Accepted Materials',
+  distanceAway: 'away',
+  identityVerifiedBadge: 'Identity Verified',
+  authVerifiedBadge: 'Authorization Verified',
+  verificationPendingBadge: 'Verification Pending',
+  notVerifiedBadge: 'Not Verified',
+  observedRate: 'Observed Rate',
+  cachedPrice: 'Cached Price',
 };

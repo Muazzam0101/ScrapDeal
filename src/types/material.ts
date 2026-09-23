@@ -21,6 +21,7 @@ export interface MaterialCategoryItem {
   iconFamily: 'Ionicons' | 'MaterialCommunityIcons' | 'Feather';
   titleKey: string;
   subtitleKey?: string;
+  labelEn: string;
   color: string;
   bgColor: string;
 }
