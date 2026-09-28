@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -53,7 +53,7 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
       setTransactions(txList);
     } catch (e: any) {
       console.warn('[CollectorEarnings] Error loading earnings:', e);
-      setError('डेटा प्राप्त नहीं हो सका');
+      setError(t('failedToLoadData'));
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +76,7 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('myEarnings')}
         showBack={true}
@@ -101,7 +101,7 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
             ₹ {earningsSummary.totalEarnings.toLocaleString('en-IN')}
           </Text>
           <Text style={styles.earningsSub}>
-            {earningsSummary.transactionCount} लेन-देन • {earningsSummary.totalWeight} kg रीसायकल किया
+            {earningsSummary.transactionCount} {t('dealsCountLabel')} • {earningsSummary.totalWeight} {t('kg')} {t('recycledLabel')}
           </Text>
         </View>
 
@@ -131,7 +131,7 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
 
         {/* Real Dynamic States */}
         {isLoading && transactions.length === 0 && (
-          <LoadingState message="पासबुक व लेन-देन लोड हो रहा है..." />
+          <LoadingState message={t('loadingTransactionHistory')} />
         )}
 
         {error && transactions.length === 0 && (

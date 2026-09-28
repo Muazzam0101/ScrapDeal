@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Image,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -66,11 +66,11 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <AppHeader title={t('lotDetailsTitle')} showBack={true} onBackPress={() => navigation.goBack()} />
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>लॉट विवरण लोड किया जा रहा है...</Text>
+          <Text style={styles.loadingText}>{t('loadingHandoverDetails')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -78,7 +78,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
 
   if (!lot) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <AppHeader
           title={t('lotDetailsTitle')}
           showBack={true}
@@ -88,9 +88,9 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
         <View style={styles.emptyContainer}>
           <EmptyState
             icon="cube-outline"
-            title="कोई लॉट विवरण उपलब्ध नहीं है"
-            description="इस लॉट का विवरण देखने के लिए सक्रिय सूची से चयन करें।"
-            actionTitle="वापस सूची पर जाएँ"
+            title={t('noLotDetails')}
+            description={t('noLotDetailsDesc')}
+            actionTitle={t('backToList')}
             onActionPress={() => navigation.goBack()}
           />
         </View>
@@ -103,7 +103,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
   const materialName = getCategoryDisplayName(lot.categoryId);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('lotDetailsTitle')}
         showBack={true}
@@ -126,7 +126,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
           ) : (
             <View style={styles.noPhotoPlaceholder}>
               <MaterialCommunityIcons name="chip" size={64} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.noPhotoText}>कोई फोटो उपलब्ध नहीं</Text>
+              <Text style={styles.noPhotoText}>{t('noPhotoTaken')}</Text>
             </View>
           )}
 
@@ -147,7 +147,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
         {/* Title Section */}
         <View style={styles.titleSection}>
           <Text style={styles.materialName}>{materialName}</Text>
-          <Text style={styles.lotIdText}>लॉट नंबर: {lot.lotNumber || lot.localId}</Text>
+          <Text style={styles.lotIdText}>{t('lotNumber')} {lot.lotNumber || lot.localId}</Text>
         </View>
 
         {/* Weight & Status Badges */}
@@ -156,7 +156,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
             <MaterialCommunityIcons name="weight" size={20} color={colors.primaryDark} />
             <View>
               <Text style={styles.tagValue}>{lot.weightKg} {t('kg')}</Text>
-              <Text style={styles.tagLabel}>अनुमानित वजन (Weight)</Text>
+              <Text style={styles.tagLabel}>{t('estimatedWeight')}</Text>
             </View>
           </View>
 
@@ -164,7 +164,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
             <Ionicons name="information-circle-outline" size={20} color={colors.softBlue} />
             <View>
               <Text style={styles.tagValue}>{lot.status.toUpperCase()}</Text>
-              <Text style={styles.tagLabel}>वर्तमान स्थिति (Status)</Text>
+              <Text style={styles.tagLabel}>{t('currentStatus')}</Text>
             </View>
           </View>
         </View>
@@ -178,7 +178,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
                 {lot.locationCity}{lot.locationArea ? `, ${lot.locationArea}` : ''}
               </Text>
               <Text style={styles.pickupLabel}>
-                पिकअप प्राथमिकता: {lot.pickupOption === 'recycler_pickup' ? 'रीसाइक्लर पिकअप' : 'कलेक्टर ड्रॉप'}
+                {t('pickupOptionLabel')}: {lot.pickupOption === 'recycler_pickup' ? t('recyclerPickup') : t('collectorDrop')}
               </Text>
             </View>
           </View>
@@ -188,12 +188,8 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
         <View style={styles.infoCard}>
           <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.infoText}>
-            लॉट निर्माण तिथि:{' '}
-            {new Date(lot.createdAt).toLocaleDateString('hi-IN', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {t('createdDate')}:{' '}
+            {new Date(lot.createdAt).toLocaleDateString()}
           </Text>
         </View>
       </ScrollView>
@@ -201,7 +197,7 @@ export const RecyclerLotDetailsScreen: React.FC<RecyclerLotDetailsScreenProps> =
       {/* Bottom Sticky Action: Make Offer */}
       <View style={styles.bottomBar}>
         <SecondaryButton
-          title="वापस (Back)"
+          title={t('back')}
           onPress={handleReject}
           style={styles.backBtn}
         />

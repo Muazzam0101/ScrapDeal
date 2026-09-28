@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useLotStore } from '../../store/useLotStore';
@@ -66,7 +66,7 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         title={t('tabLots')}
         showBack={false}
@@ -106,11 +106,11 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
 
         {/* Real Dynamic States */}
         {isLoading && filteredLots.length === 0 && (
-          <LoadingState message="आसपास के नए लॉट खोजे जा रहे हैं..." />
+          <LoadingState message={t('findingNearbyLots')} />
         )}
 
         {error && filteredLots.length === 0 && (
-          <ErrorState message="लॉट लोड करने में विफल।" onRetry={fetchAvailableLots} />
+          <ErrorState message={t('failedToLoadLots')} onRetry={fetchAvailableLots} />
         )}
 
         {!isLoading && filteredLots.length === 0 && (
@@ -118,7 +118,7 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
             icon="cube-outline"
             title={t('noNewLots')}
             description={t('noNewLotsDesc')}
-            actionTitle="रिफ्रेश करें (Refresh)"
+            actionTitle={t('refresh')}
             onActionPress={fetchAvailableLots}
           />
         )}

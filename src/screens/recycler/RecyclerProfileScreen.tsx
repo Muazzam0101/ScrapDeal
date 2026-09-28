@@ -4,11 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   Switch,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -25,8 +26,8 @@ import { RecyclerProfile } from '../../types';
 
 export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { t } = useLanguage();
-  const { switchRole: switchContextRole } = useRole();
-  const { currentUser, switchRole: switchAuthRole, updateProfile } = useAuthStore();
+  const { switchRole: switchContextRole, setRole: setContextRole } = useRole();
+  const { currentUser, switchRole: switchAuthRole, updateProfile, logout } = useAuthStore();
 
   const recycler = (currentUser?.role === 'recycler' ? currentUser : null) as RecyclerProfile | null;
 
@@ -37,12 +38,46 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
   const handleRoleSwitch = () => {
     switchContextRole();
     switchAuthRole();
+    try {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'CollectorRoot' }],
+      });
+    } catch (e) {
+      console.warn('[RecyclerProfile] Navigation error:', e);
+    }
   };
 
-  const firmName = recycler?.firmName || recycler?.businessName || 'पंजीकृत रीसाइक्लिंग केंद्र';
-  const contactName = recycler?.contactName || recycler?.contactPerson || 'व्यवस्थापक';
+  const handleLogout = () => {
+    Alert.alert(
+      t('logoutConfirmTitle'),
+      t('logoutConfirmMessage'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('logout'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              setContextRole(null);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'RoleSelection' }],
+              });
+            } catch (e) {
+              console.warn('[RecyclerProfile] Logout error:', e);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const firmName = recycler?.firmName || recycler?.businessName || t('registeredRecycler');
+  const contactName = recycler?.contactName || recycler?.contactPerson || 'Manager';
   const phoneNumber = currentUser?.phoneNumber || '+91 98765 43211';
-  const address = recycler?.facilityAddress || recycler?.address || 'औद्योगिक क्षेत्र, पुणे';
+  const address = recycler?.facilityAddress || recycler?.address || 'Bhosari MIDC, Pune';
   const serviceRadius = recycler?.serviceRadiusKm || 25;
   const acceptedMaterials = recycler?.acceptedMaterials || ['copper', 'aluminum', 'pcb', 'battery'];
   const pickupAvailable = recycler?.pickupAvailable !== false;
@@ -103,7 +138,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         title={t('recyclerProfileTitle')}
         showBack={false}
@@ -133,12 +168,12 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
 
         {/* Operating Availability Status */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>दुकान / केंद्र स्थिति (Operating Status)</Text>
+          <Text style={styles.sectionTitle}>{t('operatingStatus')}</Text>
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleLabel}>स्क्रैप खरीद सक्रिय है (Accepting Scrap)</Text>
+              <Text style={styles.toggleLabel}>{t('acceptingScrap')}</Text>
               <Text style={styles.toggleSub}>
-                {isAvailable ? 'कबाड़ीवालों को मैचिंग में दिखाई देंगे' : 'अस्थायी रूप से बंद'}
+                {isAvailable ? t('visibleToCollectors') : t('temporarilyClosed')}
               </Text>
             </View>
             <Switch
@@ -152,9 +187,9 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
 
         {/* Service Radius Area Settings */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>सेवा क्षेत्र दायरा (Service Area Radius)</Text>
+          <Text style={styles.sectionTitle}>{t('serviceAreaRadius')}</Text>
           <Text style={styles.sectionDesc}>
-            कितनी दूरी तक आप स्क्रैप खरीद या पिकअप प्रदान करते हैं:
+            {t('serviceAreaRadiusDesc')}
           </Text>
           <View style={styles.radiusRow}>
             {[5, 10, 25, 50, 100].map((r) => {
@@ -179,9 +214,9 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
         <View style={styles.sectionCard}>
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleLabel}>पिकअप सुविधा (Scrap Pickup Available)</Text>
+              <Text style={styles.toggleLabel}>{t('pickupFacility')}</Text>
               <Text style={styles.toggleSub}>
-                क्या आप कबाड़ीवाले के स्थान से स्क्रैप पिकअप कर सकते हैं?
+                {t('pickupFacilityDesc')}
               </Text>
             </View>
             <Switch
@@ -197,7 +232,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('materialsAccepted')}</Text>
           <Text style={styles.sectionDesc}>
-            वे सामग्रियां चुनें जिन्हें आप खरीदते हैं (सामग्री मैचिंग के लिए उपयोग की जाएगी):
+            {t('materialsAcceptedDesc')}
           </Text>
           <View style={styles.chipsRow}>
             {MATERIAL_CATEGORIES.map((cat) => {
@@ -225,13 +260,13 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
 
         {/* Regulatory Authorization Section (CPCB / GSTIN) */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>नियामक प्राधिकरण (Regulatory Authorization)</Text>
+          <Text style={styles.sectionTitle}>{t('regulatoryAuthorization')}</Text>
           <Text style={styles.sectionDesc}>
             {authStatus === 'verified'
-              ? 'आपका व्यावसायिक व CPCB प्राधिकरण डिजिटल रूप से सत्यापित है।'
+              ? t('authVerifiedDesc')
               : authStatus === 'pending'
-              ? 'प्राधिकरण समीक्षा प्रक्रियाधीन है। (Authorization is under review)'
-              : 'CPCB / राज्य प्रदूषण नियंत्रण बोर्ड पंजीकरण संख्या दर्ज करें:'}
+              ? t('authPendingDesc')
+              : t('authNotSubmittedDesc')}
           </Text>
 
           <View style={styles.inputContainer}>
@@ -257,7 +292,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
 
             {authStatus !== 'verified' && (
               <PrimaryButton
-                title={authStatus === 'pending' ? 'प्राधिकरण पुनः सबमिट करें' : 'प्राधिकरण सत्यापन हेतु सबमिट करें'}
+                title={authStatus === 'pending' ? t('resubmitAuth') : t('submitAuth')}
                 loading={submittingAuth}
                 onPress={handleSubmitAuthorization}
                 style={{ marginTop: spacing.xs }}
@@ -296,13 +331,26 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('switchRole')}</Text>
           <Text style={styles.sectionDesc}>
-            यदि आप सामान बेचना चाहते हैं तो कबाड़ीवाला मोड चुनें।
+            {t('collectorSwitchDesc')}
           </Text>
           <PrimaryButton
-            title="कबाड़ीवाला मोड में बदलें (Switch to Collector)"
+            title={t('switchToCollector')}
             variant="secondary"
             icon="sync"
             onPress={handleRoleSwitch}
+          />
+        </View>
+
+        {/* Account Actions / Logout */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('accountActions')}</Text>
+          <PrimaryButton
+            title={t('logout')}
+            icon="log-out-outline"
+            iconPosition="left"
+            variant="danger"
+            onPress={handleLogout}
+            style={{ marginTop: spacing.xs }}
           />
         </View>
       </ScrollView>

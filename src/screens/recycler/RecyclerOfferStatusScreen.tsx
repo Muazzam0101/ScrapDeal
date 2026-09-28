@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -51,7 +51,7 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
   const totalAmount = offer?.totalAmount ?? passedTotal ?? 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('offerStatusTitle')}
         showBack={true}
@@ -63,7 +63,7 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>ऑफर स्थिति जांची जा रही है...</Text>
+            <Text style={styles.loadingText}>{t('checkingOfferStatus')}</Text>
           </View>
         ) : (
           <>
@@ -71,49 +71,43 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
             {isAccepted && (
               <View style={[styles.statusBanner, styles.bannerAccepted, shadows.md]}>
                 <Ionicons name="checkmark-circle" size={44} color="#fff" />
-                <Text style={styles.bannerTitle}>ऑफर स्वीकृत! (Deal Accepted)</Text>
-                <Text style={styles.bannerSubtitle}>
-                  कलेक्टर ने आपका ऑफर स्वीकार कर लिया है। सौदा तय हो गया है।
-                </Text>
+                <Text style={styles.bannerTitle}>{t('offerAcceptedTitle')}</Text>
+                <Text style={styles.bannerSubtitle}>{t('offerAcceptedDesc')}</Text>
               </View>
             )}
 
             {isPending && (
               <View style={[styles.statusBanner, styles.bannerPending, shadows.md]}>
                 <Ionicons name="time" size={44} color="#fff" />
-                <Text style={styles.bannerTitle}>ऑफर भेजा गया (Offer Pending)</Text>
-                <Text style={styles.bannerSubtitle}>
-                  आपका ऑफर कलेक्टर के पास समीक्षा के लिए भेज दिया गया है।
-                </Text>
+                <Text style={styles.bannerTitle}>{t('offerPendingTitle')}</Text>
+                <Text style={styles.bannerSubtitle}>{t('offerPendingDesc')}</Text>
               </View>
             )}
 
             {isRejected && (
               <View style={[styles.statusBanner, styles.bannerRejected, shadows.md]}>
                 <Ionicons name="close-circle" size={44} color="#fff" />
-                <Text style={styles.bannerTitle}>ऑफर अस्वीकृत (Declined)</Text>
-                <Text style={styles.bannerSubtitle}>
-                  कलेक्टर ने किसी अन्य ऑफर को चुना है या यह ऑफर निरस्त कर दिया है।
-                </Text>
+                <Text style={styles.bannerTitle}>{t('offerRejectedTitle')}</Text>
+                <Text style={styles.bannerSubtitle}>{t('offerRejectedDesc')}</Text>
               </View>
             )}
 
             {/* Offer Details Card */}
             <View style={styles.detailsCard}>
-              <Text style={styles.detailsHeading}>प्रस्तावित विवरण (Offer Details)</Text>
+              <Text style={styles.detailsHeading}>{t('offerDetailsHeading')}</Text>
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>प्रस्तावित दर (Offered Rate):</Text>
-                <Text style={styles.detailValue}>₹{ratePerKg} / किग्रा</Text>
+                <Text style={styles.detailLabel}>{t('offeredRate')}:</Text>
+                <Text style={styles.detailValue}>₹{ratePerKg} / {t('kg')}</Text>
               </View>
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>कुल प्रस्तावित राशि (Total Amount):</Text>
+                <Text style={styles.detailLabel}>{t('totalAmount')}:</Text>
                 <Text style={styles.detailTotal}>₹{totalAmount}</Text>
               </View>
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>वर्तमान स्थिति (Current Status):</Text>
+                <Text style={styles.detailLabel}>{t('currentStatus')}:</Text>
                 <View
                   style={[
                     styles.statusPill,
@@ -126,7 +120,7 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
                       isAccepted ? styles.textAccepted : isRejected ? styles.textRejected : styles.textPending,
                     ]}
                   >
-                    {isAccepted ? 'स्वीकृत (Accepted)' : isRejected ? 'अस्वीकृत (Rejected)' : 'लंबित (Pending)'}
+                    {isAccepted ? t('dealAcceptedStatus') : isRejected ? t('offerRejectedTitle') : t('pendingBadge')}
                   </Text>
                 </View>
               </View>
@@ -139,12 +133,12 @@ export const RecyclerOfferStatusScreen: React.FC<RecyclerOfferStatusScreenProps>
       <View style={styles.bottomBar}>
         {isAccepted ? (
           <PrimaryButton
-            title="पिकअप शेड्यूल देखें (View Pickups) →"
+            title={t('viewPickupsCTA')}
             onPress={() => navigation.navigate('RecyclerPickup')}
           />
         ) : (
           <SecondaryButton
-            title="अन्य उपलब्ध लॉट देखें (Browse Lots)"
+            title={t('browseLotsCTA')}
             onPress={() => navigation.navigate('RecyclerRoot', { screen: 'RecyclerLots' })}
           />
         )}

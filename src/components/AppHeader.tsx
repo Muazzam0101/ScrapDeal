@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { useRole } from '../context/RoleContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLanguage } from '../context/LanguageContext';
 
 interface AppHeaderProps {
@@ -24,8 +26,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   showRoleSwitch = true,
   rightAction,
 }) => {
+  const navigation = useNavigation<any>();
   const { role, switchRole } = useRole();
+  const { switchRole: switchAuthRole } = useAuthStore();
   const { t } = useLanguage();
+
+  const handleRoleSwitch = () => {
+    const nextRole = role === 'collector' ? 'recycler' : 'collector';
+    switchRole();
+    switchAuthRole();
+    try {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: nextRole === 'collector' ? 'CollectorRoot' : 'RecyclerRoot' }],
+      });
+    } catch (e) {
+      console.warn('[AppHeader] Navigation switch error:', e);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -70,7 +88,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {showRoleSwitch && (
           <TouchableOpacity
             style={styles.roleSwitchButton}
-            onPress={switchRole}
+            onPress={handleRoleSwitch}
             accessibilityLabel="Switch Role"
           >
             <Ionicons

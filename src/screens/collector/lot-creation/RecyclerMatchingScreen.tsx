@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -97,7 +97,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('nearbyRecyclers')}
         showBack={true}
@@ -115,7 +115,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
       >
         <Text style={styles.screenHeading}>{t('nearbyRecyclers')}</Text>
         <Text style={styles.screenSub}>
-          नियम-आधारित पारदर्शी मिलान: सामग्री, सेवा क्षेत्र और दूरी के आधार पर। (Rule-based transparent matching)
+          {t('ruleBasedMatchingSubtitle')}
         </Text>
 
         {/* Location Banner (Real GPS or Manual Non-blocking Fallback) */}
@@ -129,13 +129,13 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
             <View style={{ flex: 1 }}>
               <Text style={styles.locationBannerTitle}>
                 {hasPermission
-                  ? 'सटीक दूरी सक्रिय (Accurate Distance Enabled)'
-                  : 'स्थान अनुमति उपलब्ध नहीं (Coarse Area Mode)'}
+                  ? t('accurateDistanceEnabled')
+                  : t('coarseAreaMode')}
               </Text>
               <Text style={styles.locationBannerSub}>
                 {hasPermission
-                  ? 'निकटतम रीसाइक्लर्स की वास्तविक दूरी दिखाई जा रही है।'
-                  : `${selectedCity} — सटीक दूरी हेतु लोकेशन चालू करें।`}
+                  ? t('realDistanceShowingDesc')
+                  : t('enableLocationPrompt').replace('{city}', selectedCity || 'Pune')}
               </Text>
             </View>
           </View>
@@ -149,7 +149,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
               {requestingLoc ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={styles.enableLocBtnText}>सक्रिय करें (Enable)</Text>
+                <Text style={styles.enableLocBtnText}>{t('enableLocationBtn')}</Text>
               )}
             </TouchableOpacity>
           )}
@@ -158,20 +158,20 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>अनुकूल रीसाइक्लर खोजे जा रहे हैं...</Text>
+            <Text style={styles.loadingText}>{t('searchingSuitableRecyclers')}</Text>
           </View>
         ) : matches.length === 0 ? (
           <EmptyState
             icon="business-outline"
-            title="कोई उपयुक्त रीसाइक्लर नहीं मिला"
-            description="वर्तमान में इस सामग्री या सेवा क्षेत्र के लिए कोई रीसाइक्लर उपलब्ध नहीं है। जब कोई रीसाइक्लर आपका लॉट देखकर ऑफर भेजेगा, तो वह 'सौदे' में दिखाई देगा।"
-            actionTitle="पुनः खोजें (Refresh)"
+            title={t('noMatchingRecyclers')}
+            description={t('noMatchingRecyclersDesc')}
+            actionTitle={t('refresh')}
             onActionPress={() => loadMatches()}
           />
         ) : (
           <View style={styles.matchesList}>
             <Text style={styles.matchCount}>
-              {matches.length} अनुकूल रीसाइक्लर मिले:
+              {t('foundSuitableRecyclers').replace('{count}', String(matches.length))}
             </Text>
             {matches.map(({ recycler, matchReasons, distanceText }, idx) => (
               <View key={recycler.id || idx} style={styles.recyclerCard}>
@@ -181,12 +181,12 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
                   </View>
                   <View style={styles.recyclerInfo}>
                     <Text style={styles.firmName}>
-                      {recycler.firmName || recycler.businessName || 'पंजीकृत रीसाइक्लर'}
+                      {recycler.firmName || recycler.businessName || t('registeredRecycler')}
                     </Text>
                     <View style={styles.locDistanceRow}>
                       <Ionicons name="location-outline" size={13} color={colors.textMuted} />
                       <Text style={styles.locationText}>
-                        {recycler.city || recycler.serviceArea || 'पुणे'}
+                        {recycler.city || recycler.serviceArea || 'Pune'}
                       </Text>
                       {distanceText && (
                         <View style={styles.distanceBadge}>
@@ -229,7 +229,7 @@ export const RecyclerMatchingScreen: React.FC<RecyclerMatchingScreenProps> = ({
       {/* Primary Action to view deals */}
       <View style={styles.bottomBar}>
         <PrimaryButton
-          title="मेरे सौदे देखें (View Deals) →"
+          title={t('viewDealsCTA')}
           onPress={handleGoToDeals}
         />
       </View>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, typography } from '../theme';
 import { useLanguage } from '../context/LanguageContext';
 import { RecyclerTabParamList } from '../types';
@@ -14,6 +15,8 @@ const Tab = createBottomTabNavigator<RecyclerTabParamList>();
 
 export const RecyclerNavigator: React.FC = () => {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
 
   return (
     <Tab.Navigator
@@ -25,9 +28,9 @@ export const RecyclerNavigator: React.FC = () => {
           backgroundColor: colors.card,
           borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 56 + bottomInset,
+          paddingBottom: bottomInset,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           ...typography.caption,

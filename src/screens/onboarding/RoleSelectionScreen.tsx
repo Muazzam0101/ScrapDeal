@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -38,7 +38,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ naviga
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -109,6 +109,27 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ naviga
             <View style={[styles.arrowCircle, { backgroundColor: colors.softBlueBg }]}>
               <Ionicons name="arrow-forward" size={20} color={colors.softBlue} />
             </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Login & Signup Entry Buttons */}
+        <View style={styles.authActionsContainer}>
+          <TouchableOpacity
+            style={styles.authPrimaryBtn}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="log-in-outline" size={20} color={colors.card} />
+            <Text style={styles.authPrimaryBtnText}>{t('loginWithPhone')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.authSecondaryBtn}
+            onPress={() => navigation.navigate('Signup')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="person-add-outline" size={18} color={colors.primaryDark} />
+            <Text style={styles.authSecondaryBtnText}>{t('createNewAccount')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -198,7 +219,7 @@ const styles = StyleSheet.create({
   cardsContainer: {
     width: '100%',
     gap: spacing.lg,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
   },
   roleCard: {
     flexDirection: 'row',
@@ -243,6 +264,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
+  },
+  authActionsContainer: {
+    width: '100%',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  authPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  authPrimaryBtnText: {
+    ...typography.button,
+    color: colors.card,
+  },
+  authSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+  authSecondaryBtnText: {
+    ...typography.button,
+    color: colors.primaryDark,
   },
   languageSection: {
     width: '100%',

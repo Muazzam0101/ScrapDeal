@@ -9,6 +9,9 @@ interface CreateLotContextType {
   addPhotoUri: (uri: string) => void;
   categoryId: MaterialCategoryId | null;
   setCategoryId: (id: MaterialCategoryId | null) => void;
+  selectedCategories: MaterialCategoryId[];
+  setSelectedCategories: (ids: MaterialCategoryId[]) => void;
+  toggleCategory: (id: MaterialCategoryId) => void;
   weightKg: number;
   setWeightKg: (w: number) => void;
   ratePerKg: number;
@@ -48,6 +51,7 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [photoCaptured, setPhotoCaptured] = useState<boolean>(true);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState<MaterialCategoryId | null>('pcb');
+  const [selectedCategories, setSelectedCategories] = useState<MaterialCategoryId[]>(['pcb']);
   const [weightKg, setWeightKg] = useState<number>(15);
   const [ratePerKg, setRatePerKg] = useState<number>(280);
   const [pickupOption, setPickupOption] = useState<PickupOption>('collector_drop');
@@ -58,6 +62,35 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [aiPredictedCategory, setAiPredictedCategory] = useState<MaterialCategoryId | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [aiUserConfirmed, setAiUserConfirmed] = useState<boolean>(true);
+
+  const handleSetCategoryId = (id: MaterialCategoryId | null) => {
+    setCategoryId(id);
+    if (id && !selectedCategories.includes(id)) {
+      setSelectedCategories([id]);
+    }
+  };
+
+  const handleSetSelectedCategories = (ids: MaterialCategoryId[]) => {
+    setSelectedCategories(ids);
+    if (ids.length > 0 && (!categoryId || !ids.includes(categoryId))) {
+      setCategoryId(ids[0]);
+    } else if (ids.length === 0) {
+      setCategoryId(null);
+    }
+  };
+
+  const toggleCategory = (id: MaterialCategoryId) => {
+    setSelectedCategories((prev) => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter((c) => c !== id) : [...prev, id];
+      if (next.length > 0 && (!categoryId || !next.includes(categoryId))) {
+        setCategoryId(next[0]);
+      } else if (next.length === 0) {
+        setCategoryId(null);
+      }
+      return next;
+    });
+  };
 
   const setAiPredictionData = (data: {
     predictionId?: string | null;
@@ -87,6 +120,7 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
     setPhotoCaptured(true);
     setPhotoUris([]);
     setCategoryId('pcb');
+    setSelectedCategories(['pcb']);
     setWeightKg(15);
     setRatePerKg(280);
     setPickupOption('collector_drop');
@@ -108,7 +142,10 @@ export const CreateLotProvider: React.FC<{ children: ReactNode }> = ({ children 
         setPhotoUris,
         addPhotoUri,
         categoryId,
-        setCategoryId,
+        setCategoryId: handleSetCategoryId,
+        selectedCategories,
+        setSelectedCategories: handleSetSelectedCategories,
+        toggleCategory,
         weightKg,
         setWeightKg,
         ratePerKg,

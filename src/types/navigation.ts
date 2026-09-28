@@ -1,8 +1,11 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { MaterialCategoryId } from './material';
+import { UserRole } from './user';
 
 export type RootStackParamList = {
   RoleSelection: undefined;
+  Login: { defaultRole?: UserRole } | undefined;
+  Signup: { defaultRole?: UserRole } | undefined;
   CollectorRoot: NavigatorScreenParams<CollectorTabParamList> | undefined;
   RecyclerRoot: NavigatorScreenParams<RecyclerTabParamList> | undefined;
 

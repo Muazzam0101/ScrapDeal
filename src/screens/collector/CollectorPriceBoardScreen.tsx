@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -43,7 +43,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
   const activeItemsWithPrice = priceBoardItems.filter((i) => i.latestRatePerKg !== undefined);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('todaysRate')}
         showBack={true}
@@ -76,9 +76,9 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
         {activeItemsWithPrice.length === 0 ? (
           <EmptyState
             icon="trending-up-outline"
-            title="वर्तमान में कोई भाव उपलब्ध नहीं है"
-            description="जब सत्यापित रीसाइक्लर्स अपनी दरें दर्ज करेंगे, तो वे यहां दिखाई देंगी। (Price discovery displays observed rates once available)"
-            actionTitle="ताजा भाव प्राप्त करें (Refresh)"
+            title={t('noRatesAvailable')}
+            description={t('noRatesAvailableDesc')}
+            actionTitle={t('refresh')}
             onActionPress={handleRefresh}
           />
         ) : (
@@ -103,13 +103,13 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                       <Text style={styles.categoryTitle}>{item.categoryLabel}</Text>
                       <Text style={styles.recyclerCountText}>
                         {item.activeRecyclersCount > 0
-                          ? `${item.activeRecyclersCount} रीसाइक्लर सक्रिय`
-                          : 'बाजार संदर्भ'}
+                          ? t('activeRecyclersCount').replace('{count}', String(item.activeRecyclersCount))
+                          : t('marketReference')}
                       </Text>
                     </View>
                     <View style={styles.rateContainer}>
                       <Text style={styles.rateValue}>₹{item.latestRatePerKg}</Text>
-                      <Text style={styles.rateUnit}>/ किग्रा (kg)</Text>
+                      <Text style={styles.rateUnit}> {t('perKg')}</Text>
                     </View>
                   </View>
 
@@ -117,22 +117,22 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                   <View style={styles.priceCardBottom}>
                     {item.minObservedRate && item.maxObservedRate && item.minObservedRate !== item.maxObservedRate ? (
                       <Text style={styles.rangeText}>
-                        रेंज: ₹{item.minObservedRate} - ₹{item.maxObservedRate}
+                        {t('rateRange').replace('{min}', String(item.minObservedRate)).replace('{max}', String(item.maxObservedRate))}
                       </Text>
                     ) : (
-                      <Text style={styles.rangeText}>अवलोकित दर (Observed Rate)</Text>
+                      <Text style={styles.rangeText}>{t('observedRate')}</Text>
                     )}
 
                     {item.isStale ? (
                       <View style={styles.staleBadge}>
                         <Ionicons name="time-outline" size={12} color="#D97706" />
                         <Text style={styles.staleBadgeText}>
-                          कैश्ड मूल्य (Cached: {formattedDate || 'Old'})
+                          {t('cachedPrice').replace('{date}', formattedDate || 'Old')}
                         </Text>
                       </View>
                     ) : formattedDate ? (
                       <Text style={styles.freshText}>
-                        अपडेट: {formattedDate}
+                        {t('lastUpdated')}: {formattedDate}
                       </Text>
                     ) : null}
                   </View>

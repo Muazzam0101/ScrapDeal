@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
 
 interface OfferCardProps {
   title: string;
@@ -20,6 +21,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
   timestamp = '11:30 AM',
   isAccepted = false,
 }) => {
+  const { t } = useLanguage();
   const isRecycler = actorRole === 'recycler';
 
   return (
@@ -45,12 +47,12 @@ export const OfferCard: React.FC<OfferCardProps> = ({
 
       <View style={styles.amountRow}>
         <View>
-          <Text style={styles.rateLabel}>रेट (प्रति किलो)</Text>
-          <Text style={styles.rateValue}>₹ {ratePerKg} /kg</Text>
+          <Text style={styles.rateLabel}>{t('ratePerKg')}</Text>
+          <Text style={styles.rateValue}>₹ {ratePerKg} /{t('kg')}</Text>
         </View>
 
         <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>कुल राशि</Text>
+          <Text style={styles.totalLabel}>{t('totalAmount')}</Text>
           <Text style={styles.totalValue}>₹ {totalAmount.toLocaleString('en-IN')}</Text>
         </View>
       </View>

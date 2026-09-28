@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCreateLot } from '../../../context/CreateLotContext';
@@ -70,7 +70,7 @@ export const MaterialCategoryScreen: React.FC<MaterialCategoryScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('materialCategoryTitle')}
         showBack={true}

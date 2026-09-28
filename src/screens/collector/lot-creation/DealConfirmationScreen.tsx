@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Image,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -40,11 +40,11 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
 
   const handleCreateLot = async () => {
     if (weightKg <= 0) {
-      Alert.alert('त्रुटि (Error)', 'कृपया वैध वजन दर्ज करें (Please enter valid weight)');
+      Alert.alert(t('errorTitle'), t('pleaseEnterValidWeight'));
       return;
     }
     if (!categoryId) {
-      Alert.alert('त्रुटि (Error)', 'कृपया सामग्री का चयन करें (Please select material category)');
+      Alert.alert(t('errorTitle'), t('selectMaterialCategory'));
       return;
     }
 
@@ -71,14 +71,14 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
       navigation.navigate('RecyclerMatching', { lotId: lot.localId, lot });
     } catch (e: any) {
       setSubmitting(false);
-      Alert.alert('लॉट निर्माण में त्रुटि', e?.message || 'लॉट सुरक्षित नहीं हो सका');
+      Alert.alert(t('errorTitle'), e?.message || t('failedToLoadData'));
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
-        title={t('lotSummaryTitle') || 'लॉट सारांश (Lot Summary)'}
+        title={t('dealConfirmationTitle')}
         showBack={true}
         onBackPress={() => navigation.goBack()}
         showNotification={false}
@@ -89,9 +89,9 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.screenHeading}>लॉट का विवरण (Lot Summary)</Text>
+        <Text style={styles.screenHeading}>{t('dealConfirmationTitle')}</Text>
         <Text style={styles.screenSub}>
-          पुष्टि करने से पहले अपने कबाड़ का विवरण जाँच लें।
+          {t('dealConfirmationSubtitle')}
         </Text>
 
         {/* Real Summary Card */}
@@ -126,9 +126,9 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
               <Ionicons name="car-outline" size={24} color="#D97706" />
             </View>
             <View style={styles.rowDetails}>
-              <Text style={styles.rowLabel}>पिकअप का तरीका (Pickup Option)</Text>
+              <Text style={styles.rowLabel}>{t('pickupOptionLabel')}</Text>
               <Text style={styles.rowValue}>
-                {pickupOption === 'recycler_pickup' ? 'रीसाइक्लर पिकअप' : 'स्वयं छोड़ना (Collector Drop)'}
+                {pickupOption === 'recycler_pickup' ? t('pickupOptionPickup') : t('pickupOptionDrop')}
               </Text>
             </View>
             <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
@@ -136,13 +136,13 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
 
           {/* Photo Preview Section */}
           <View style={styles.photoContainer}>
-            <Text style={styles.photoLabel}>सामग्री की वास्तविक फोटो (Material Photo):</Text>
+            <Text style={styles.photoLabel}>{t('materialPhoto')}:</Text>
             {activePhotoUri ? (
               <Image source={{ uri: activePhotoUri }} style={styles.photoPreview} resizeMode="cover" />
             ) : (
               <View style={styles.noPhotoBox}>
                 <Ionicons name="camera-outline" size={36} color={colors.textMuted} />
-                <Text style={styles.noPhotoText}>कोई फोटो नहीं ली गई</Text>
+                <Text style={styles.noPhotoText}>{t('noPhotoAvailable')}</Text>
               </View>
             )}
           </View>
@@ -157,8 +157,8 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
           />
           <Text style={[styles.syncBadgeText, { color: isOnline ? '#00875A' : '#D97706' }]}>
             {isOnline
-              ? 'ऑनलाइन मोड: लॉट सीधे क्लाउड पर सुरक्षित होगा'
-              : 'ऑफलाइन मोड: SQLite में सुरक्षित होगा, इंटरनेट आने पर सिंक होगा'}
+              ? t('onlineModeNotice')
+              : t('offlineModeNotice')}
           </Text>
         </View>
       </ScrollView>
@@ -166,7 +166,7 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
       {/* Primary CTA Button */}
       <View style={styles.bottomBar}>
         <PrimaryButton
-          title={submitting ? 'लॉट बनाया जा रहा है...' : 'लॉट बनाएँ (Create Lot) →'}
+          title={submitting ? t('creatingLot') : t('createLotCTA')}
           onPress={handleCreateLot}
           disabled={submitting}
         />

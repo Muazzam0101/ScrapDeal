@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Modal,
   TextInput,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -52,7 +52,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
   const handleSaveRate = async () => {
     const rateNum = parseFloat(rateInput);
     if (isNaN(rateNum) || rateNum <= 0) {
-      setSaveError('कृपया वैध दर दर्ज करें (Please enter a valid rate)');
+      setSaveError(t('pleaseEnterValidRate'));
       return;
     }
 
@@ -69,14 +69,14 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
       setRateInput('');
       setModalVisible(false);
     } catch (err: any) {
-      setSaveError(err?.message || 'दर सहेजने में विफल');
+      setSaveError(err?.message || 'Error saving rate');
     } finally {
       setSavingRate(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         title={t('actionMyRates')}
         showBack={true}
@@ -88,7 +88,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
             onPress={() => setModalVisible(true)}
           >
             <Ionicons name="add" size={18} color={colors.textLight} />
-            <Text style={styles.headerAddText}>+ दर जोड़ें (Add Rate)</Text>
+            <Text style={styles.headerAddText}>+ {t('addRate')}</Text>
           </TouchableOpacity>
         }
       />
@@ -104,7 +104,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
         <View style={styles.infoBanner}>
           <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
           <Text style={styles.infoBannerText}>
-            आपके द्वारा दर्ज दरें कबाड़ीवालों के "आज के भाव" बोर्ड पर प्रदर्शित होंगी। (Rates update live on collector price board)
+            {t('ratesLiveNotice')}
           </Text>
         </View>
 
@@ -114,7 +114,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
             icon="pricetag-outline"
             title={t('noRatesAdded')}
             description={t('noRatesDesc')}
-            actionTitle="+ नया Rate जोड़ें"
+            actionTitle={`+ ${t('addRate')}`}
             onActionPress={() => setModalVisible(true)}
           />
         ) : (
@@ -131,7 +131,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
                   <PriceCard
                     materialName={catConfig?.labelEn || item.materialName || item.materialCategory.toUpperCase()}
                     category={item.materialCategory.toUpperCase()}
-                    rateRange={`₹ ${item.ratePerKg} / kg`}
+                    rateRange={`₹ ${item.ratePerKg} / ${t('kg')}`}
                     trend="stable"
                     showEdit={true}
                     onEdit={() => {
@@ -143,7 +143,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
                   <View style={styles.rateTimestampRow}>
                     <Ionicons name="time-outline" size={12} color={colors.textMuted} />
                     <Text style={styles.rateTimestampText}>
-                      अंतिम अपडेट: {new Date(item.updatedAt).toLocaleDateString()} {formattedDate}
+                      {t('lastUpdated')}: {new Date(item.updatedAt).toLocaleDateString()} {formattedDate}
                     </Text>
                   </View>
                 </View>
@@ -157,9 +157,9 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>स्क्रैप खरीद दर निर्धारित करें (Set Rate)</Text>
+            <Text style={styles.modalTitle}>{t('setRateTitle')}</Text>
 
-            <Text style={styles.inputLabel}>सामग्री चुनें (Select Material Category)</Text>
+            <Text style={styles.inputLabel}>{t('selectCategory')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catChipsScroll}>
               <View style={styles.catChipsRow}>
                 {MATERIAL_CATEGORIES.map((cat) => {
@@ -179,7 +179,7 @@ export const RecyclerRatesScreen: React.FC<{ navigation: any }> = ({ navigation 
               </View>
             </ScrollView>
 
-            <Text style={styles.inputLabel}>दर प्रति किग्रा (Rate in ₹ / kg)</Text>
+            <Text style={styles.inputLabel}>{t('ratePerKg')} (₹ / {t('kg')})</Text>
             <TextInput
               style={styles.textInput}
               placeholder="e.g. 520"

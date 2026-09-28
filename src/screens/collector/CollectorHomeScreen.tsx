@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -20,10 +20,10 @@ interface CollectorHomeScreenProps {
 export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
   const { currentUser } = useAuthStore();
-  const userName = (currentUser as any)?.name || 'नमस्ते!';
+  const userName = (currentUser as any)?.name || 'Collector';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         location={t('collectorLocation')}
         showBack={false}
@@ -40,7 +40,7 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
             <MaterialCommunityIcons name="account-hard-hat" size={32} color={colors.primary} />
           </View>
           <View style={styles.greetingTextContainer}>
-            <Text style={styles.greetingTitle}>नमस्ते, {userName}!</Text>
+            <Text style={styles.greetingTitle}>{t('greetingHello')}, {userName}!</Text>
             <Text style={styles.greetingSub}>{t('greetingCollector')}</Text>
           </View>
         </View>

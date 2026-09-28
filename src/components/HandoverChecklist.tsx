@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { HandoverChecklistState } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HandoverChecklistProps {
   checklist: HandoverChecklistState;
@@ -18,33 +19,36 @@ interface HandoverChecklistProps {
 export const HandoverChecklist: React.FC<HandoverChecklistProps> = ({
   checklist,
   onToggle,
-  labels = {
-    weightVerified: 'वजन दर्ज हुआ (Weight Recorded)',
-    photoCaptured: 'फोटो ली गई (Photo Verified)',
-    locationConfirmed: 'लोकेशन दर्ज होगी (Location Logged)',
-    timestampConfirmed: 'समय व तारीख (Timestamp Logged)',
-  },
+  labels,
 }) => {
+  const { t } = useLanguage();
+  const effectiveLabels = labels || {
+    weightVerified: t('weightRecorded'),
+    photoCaptured: t('photoVerified'),
+    locationConfirmed: t('locationLogged'),
+    timestampConfirmed: t('timestampLogged'),
+  };
+
   const items: { key: keyof HandoverChecklistState; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
     {
       key: 'weightVerified',
       icon: 'scale-outline',
-      label: labels.weightVerified,
+      label: effectiveLabels.weightVerified,
     },
     {
       key: 'photoCaptured',
       icon: 'camera-outline',
-      label: labels.photoCaptured,
+      label: effectiveLabels.photoCaptured,
     },
     {
       key: 'locationConfirmed',
       icon: 'location-outline',
-      label: labels.locationConfirmed,
+      label: effectiveLabels.locationConfirmed,
     },
     {
       key: 'timestampConfirmed',
       icon: 'time-outline',
-      label: labels.timestampConfirmed,
+      label: effectiveLabels.timestampConfirmed,
     },
   ];
 

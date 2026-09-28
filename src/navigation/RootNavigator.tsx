@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 
 import { RoleSelectionScreen } from '../screens/onboarding/RoleSelectionScreen';
+import { LoginScreen } from '../screens/auth/LoginScreen';
+import { SignupScreen } from '../screens/auth/SignupScreen';
 import { CollectorNavigator } from './CollectorNavigator';
 import { RecyclerNavigator } from './RecyclerNavigator';
 
@@ -40,8 +42,10 @@ export const RootNavigator: React.FC = () => {
         animation: 'slide_from_right',
       }}
     >
-      {/* Role Selection Onboarding */}
+      {/* Role Selection Onboarding & Auth */}
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
 
       {/* Main Role Hubs */}
       <Stack.Screen name="CollectorRoot" component={CollectorNavigator} />

@@ -4,9 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -27,13 +28,47 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
   navigation,
 }) => {
   const { t } = useLanguage();
-  const { switchRole: switchContextRole } = useRole();
-  const { currentUser, switchRole: switchAuthRole, updateProfile } = useAuthStore();
+  const { switchRole: switchContextRole, setRole: setContextRole } = useRole();
+  const { currentUser, switchRole: switchAuthRole, updateProfile, logout } = useAuthStore();
   const [submittingVerification, setSubmittingVerification] = React.useState(false);
 
   const handleRoleSwitch = () => {
     switchContextRole();
     switchAuthRole();
+    try {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'RecyclerRoot' }],
+      });
+    } catch (e) {
+      console.warn('[CollectorProfile] Navigation error:', e);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('logoutConfirmTitle'),
+      t('logoutConfirmMessage'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('logout'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              setContextRole(null);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'RoleSelection' }],
+              });
+            } catch (e) {
+              console.warn('[CollectorProfile] Logout error:', e);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleStartIdentityVerification = async () => {
@@ -54,13 +89,13 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
     }
   };
 
-  const displayName = (currentUser as any)?.name || 'कबाड़ी मित्र';
+  const displayName = (currentUser as any)?.name || t('collectorPartner');
   const displayLocation = (currentUser as any)?.location || t('collectorLocation');
   const displayPhone = currentUser?.phoneNumber || '+91 98765 43210';
   const idStatus = currentUser?.identityVerificationStatus || 'not_started';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         title={t('tabProfile')}
         showBack={false}
@@ -89,20 +124,20 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
 
         {/* Identity Verification Section */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>पहचान सत्यापन (Identity Verification)</Text>
+          <Text style={styles.sectionTitle}>{t('identityVerification')}</Text>
           <Text style={styles.sectionDesc}>
             {idStatus === 'verified'
-              ? 'आपकी पहचान डिजिटल रूप से सत्यापित है। (Identity is verified)'
+              ? t('identityVerifiedDesc')
               : idStatus === 'pending'
-              ? 'सत्यापन अनुरोध प्रक्रियाधीन है। (Verification is under digital review)'
-              : 'अधिक रीसाइक्लर्स से बेहतर मूल्य प्राप्त करने के लिए पहचान सत्यापन शुरू करें।'}
+              ? t('identityPendingDesc')
+              : t('identityStartDesc')}
           </Text>
           {idStatus !== 'verified' && (
             <PrimaryButton
               title={
                 idStatus === 'pending'
-                  ? 'सत्यापन स्थिति जांचें (Check Status)'
-                  : 'पहचान सत्यापन शुरू करें (Verify Identity)'
+                  ? t('checkStatus')
+                  : t('verifyIdentity')
               }
               variant={idStatus === 'pending' ? 'secondary' : 'primary'}
               icon="shield-checkmark-outline"
@@ -122,10 +157,10 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('switchRole')}</Text>
           <Text style={styles.sectionDesc}>
-            यदि आप सामग्री खरीदना चाहते हैं तो रीसाइक्लर मोड में बदलें।
+            {t('recyclerSwitchDesc')}
           </Text>
           <PrimaryButton
-            title="Recycler मोड में बदलें (Switch to Recycler)"
+            title={t('switchToRecycler')}
             icon="sync"
             variant="secondary"
             onPress={handleRoleSwitch}
@@ -133,16 +168,29 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
           />
         </View>
 
+        {/* Account Actions / Logout */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('accountActions')}</Text>
+          <PrimaryButton
+            title={t('logout')}
+            icon="log-out-outline"
+            iconPosition="left"
+            variant="danger"
+            onPress={handleLogout}
+            style={styles.logoutBtn}
+          />
+        </View>
+
         {/* Safety & Help */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>मदद व सुरक्षा (Help & Safety)</Text>
+          <Text style={styles.sectionTitle}>{t('helpAndSafety')}</Text>
           <TouchableOpacity
             style={styles.menuRow}
             onPress={() => navigation.navigate('CollectorSafety')}
           >
             <View style={styles.menuLeft}>
               <Ionicons name="shield-outline" size={22} color={colors.primary} />
-              <Text style={styles.menuText}>सुरक्षा नियम व दिशानिर्देश</Text>
+              <Text style={styles.menuText}>{t('safetyGuidelines')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -152,7 +200,7 @@ export const CollectorProfileScreen: React.FC<CollectorProfileScreenProps> = ({
           <TouchableOpacity style={styles.menuRow}>
             <View style={styles.menuLeft}>
               <Ionicons name="call-outline" size={22} color={colors.primary} />
-              <Text style={styles.menuText}>हेल्पलाइन सहायता (1800-XXX-XXXX)</Text>
+              <Text style={styles.menuText}>{t('helplineSupport')} (1800-XXX-XXXX)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -237,6 +285,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   switchBtn: {
+    marginTop: spacing.xs,
+  },
+  logoutBtn: {
     marginTop: spacing.xs,
   },
   menuRow: {

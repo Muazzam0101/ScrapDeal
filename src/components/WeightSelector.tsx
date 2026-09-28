@@ -13,9 +13,10 @@ interface WeightSelectorProps {
 export const WeightSelector: React.FC<WeightSelectorProps> = ({
   value,
   onChange,
-  unit = 'किलो',
+  unit,
 }) => {
   const { t } = useLanguage();
+  const displayUnit = unit || t('kg');
 
   const handleIncrement = (amount: number) => {
     onChange(Math.max(0, Math.round((value + amount) * 10) / 10));
@@ -70,7 +71,7 @@ export const WeightSelector: React.FC<WeightSelectorProps> = ({
               onChangeText={handleTextChange}
             />
           </View>
-          <Text style={styles.unitText}>{unit}</Text>
+          <Text style={styles.unitText}>{displayUnit}</Text>
         </View>
 
         <TouchableOpacity

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme';
 import { VerificationBadge } from './VerificationBadge';
+import { useLanguage } from '../context/LanguageContext';
 
 interface RecyclerCardProps {
   name: string;
@@ -25,6 +26,8 @@ export const RecyclerCard: React.FC<RecyclerCardProps> = ({
   onCall,
   selected = false,
 }) => {
+  const { t } = useLanguage();
+
   return (
     <TouchableOpacity
       style={[
@@ -62,7 +65,7 @@ export const RecyclerCard: React.FC<RecyclerCardProps> = ({
 
         {rate && (
           <Text style={styles.rateText}>
-            दर: <Text style={styles.rateHighlight}>{rate}</Text>
+            {t('rate')}: <Text style={styles.rateHighlight}>{rate}</Text>
           </Text>
         )}
       </View>

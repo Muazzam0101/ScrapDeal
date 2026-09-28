@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -46,12 +46,12 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
 
   const handleSendOffer = async () => {
     if (numericRate <= 0) {
-      alert('कृपया 0 से अधिक दर दर्ज करें (Please enter rate greater than 0)');
+      alert(t('pleaseEnterValidRate'));
       return;
     }
 
     const recyclerId = currentUser?.id || 'RECYCLER-GREEN-EARTH';
-    const recyclerName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || 'पंजीकृत रीसाइक्लर';
+    const recyclerName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || t('registeredRecycler');
 
     try {
       const { dealFlowService } = await import('../../services/deal/dealFlowService');
@@ -72,12 +72,12 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
       });
     } catch (e: any) {
       console.warn('[MakeOffer] Error creating offer:', e);
-      alert(e?.message || 'ऑफर भेजने में त्रुटि हुई');
+      alert(e?.message || t('errorSendingOffer'));
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('makeOfferTitle')}
         showBack={true}
@@ -174,7 +174,7 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
             numberOfLines={3}
             value={comments}
             onChangeText={setComments}
-            placeholder="जैसे: केवल अच्छी स्थिति वाले बोर्ड स्वीकार्य हैं..."
+            placeholder={t('notesPlaceholder')}
             placeholderTextColor={colors.textMuted}
           />
         </View>

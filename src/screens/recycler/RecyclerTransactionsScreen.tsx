@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -39,7 +39,7 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
       setTransactions(list);
     } catch (e: any) {
       console.warn('[RecyclerTransactions] Error loading transactions:', e);
-      setError('लेन-देन लोड करने में असमर्थ।');
+      setError(t('failedToLoadTransactions'));
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +62,7 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('tabTransactions')}
         showBack={true}
@@ -103,7 +103,7 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
 
         {/* Real Dynamic States */}
         {isLoading && transactions.length === 0 && (
-          <LoadingState message="लेन-देन इतिहास लोड हो रहा है..." />
+          <LoadingState message={t('loadingTransactionHistory')} />
         )}
 
         {error && transactions.length === 0 && (
@@ -113,9 +113,9 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
         {!isLoading && transactions.length === 0 && (
           <EmptyState
             icon="receipt-outline"
-            title="अभी कोई transaction नहीं है"
-            description="आपके द्वारा खरीदे गए लॉट्स और भुगतान का इतिहास यहाँ दिखाई देगा।"
-            actionTitle="लॉट्स देखें (Explore Lots)"
+            title={t('noTransactionsYet')}
+            description={t('transactionsEmptyDesc')}
+            actionTitle={t('exploreLots')}
             onActionPress={() => navigation.navigate('RecyclerLots')}
           />
         )}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme';
 import { MaterialLot } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface LotCardProps {
   lot?: MaterialLot;
@@ -31,9 +32,10 @@ export const LotCard: React.FC<LotCardProps> = ({
   onAction,
   onPress,
 }) => {
+  const { t } = useLanguage();
   const displayMaterial = materialName || (lot ? lot.categoryId.toUpperCase() : 'Scrap');
-  const displayWeight = weight || (lot ? `${lot.weightKg} kg` : '');
-  const displayLocation = location || (lot ? `${lot.locationCity || 'पुणे'}, ${lot.locationArea || 'महाराष्ट्र'}` : '');
+  const displayWeight = weight || (lot ? `${lot.weightKg} ${t('kg')}` : '');
+  const displayLocation = location || (lot ? `${lot.locationCity || 'Pune'}, ${lot.locationArea || 'Maharashtra'}` : '');
   const displayTime = timestamp || (lot ? new Date(lot.createdAt).toLocaleDateString() : '');
   const displayValue = estimatedValue || (lot?.agreedTotalAmount ? `₹ ${lot.agreedTotalAmount.toLocaleString('en-IN')}` : undefined);
 
@@ -70,7 +72,7 @@ export const LotCard: React.FC<LotCardProps> = ({
 
           {lot?.syncStatus === 'pending' && (
             <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>ऑफलाइन सुरक्षित (Pending Sync)</Text>
+              <Text style={styles.pendingBadgeText}>{t('offlinePendingSync')}</Text>
             </View>
           )}
         </View>

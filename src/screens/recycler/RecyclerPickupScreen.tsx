@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -53,7 +53,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
   const completedDeals = deals.filter((d) => d.status === 'completed');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('actionPickupSchedule')}
         showBack={true}
@@ -80,7 +80,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                 activeTab === 'upcoming' && styles.tabTextActive,
               ]}
             >
-              आगामी पिकअप ({upcomingDeals.length})
+              {t('upcomingPickups')} ({upcomingDeals.length})
             </Text>
           </TouchableOpacity>
 
@@ -94,7 +94,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                 activeTab === 'completed' && styles.tabTextActive,
               ]}
             >
-              पूर्ण पिकअप ({completedDeals.length})
+              {t('completedPickups')} ({completedDeals.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -102,7 +102,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>पिकअप सूची लोड की जा रही है...</Text>
+            <Text style={styles.loadingText}>{t('loadingPickupList')}</Text>
           </View>
         ) : activeTab === 'upcoming' ? (
           upcomingDeals.length === 0 ? (
@@ -110,7 +110,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
               icon="car-outline"
               title={t('noPickups')}
               description={t('noPickupsDesc')}
-              actionTitle="पिकअप शेड्यूल चेक करें (Refresh)"
+              actionTitle={t('refresh')}
               onActionPress={loadDeals}
             />
           ) : (
@@ -128,7 +128,7 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.dealMaterial}>{deal.materialName}</Text>
-                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} किग्रा • दर: ₹{deal.agreedRatePerKg}/किग्रा</Text>
+                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} {t('kg')} • {t('rate')}: ₹{deal.agreedRatePerKg}/{t('kg')}</Text>
                     </View>
                     <Text style={styles.dealTotal}>₹{deal.agreedTotalAmount}</Text>
                   </View>
@@ -136,12 +136,12 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                   <View style={styles.cardFooter}>
                     <View style={styles.statusPill}>
                       <Text style={styles.statusPillText}>
-                        {deal.status === 'handover_pending' ? 'हैंडओवर प्रतीक्षित' : 'सौदा स्वीकृत'}
+                        {deal.status === 'handover_pending' ? t('handoverPending') : t('dealAcceptedStatus')}
                       </Text>
                     </View>
 
                     <View style={styles.actionPrompt}>
-                      <Text style={styles.actionPromptText}>प्राप्ति पुष्टि करें →</Text>
+                      <Text style={styles.actionPromptText}>{t('confirmReceipt')}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -152,9 +152,9 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
           completedDeals.length === 0 ? (
             <EmptyState
               icon="checkmark-circle-outline"
-              title="कोई पूर्ण पिकअप नहीं है"
-              description="पूर्ण हो चुके पिकअप यहाँ संग्रहीत होंगे।"
-              actionTitle="रिफ्रेश करें (Refresh)"
+              title={t('noCompletedPickups')}
+              description={t('noCompletedPickupsDesc')}
+              actionTitle={t('refresh')}
               onActionPress={loadDeals}
             />
           ) : (
@@ -167,17 +167,17 @@ export const RecyclerPickupScreen: React.FC<{ navigation: any }> = ({ navigation
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.dealMaterial}>{deal.materialName}</Text>
-                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} किग्रा • दर: ₹{deal.agreedRatePerKg}/किग्रा</Text>
+                      <Text style={styles.dealWeight}>{deal.agreedWeightKg} {t('kg')} • {t('rate')}: ₹{deal.agreedRatePerKg}/{t('kg')}</Text>
                     </View>
                     <Text style={[styles.dealTotal, { color: '#00875A' }]}>₹{deal.agreedTotalAmount}</Text>
                   </View>
 
                   <View style={styles.cardFooter}>
                     <Text style={styles.completedDate}>
-                      पूर्ण तिथि: {new Date(deal.updatedAt).toLocaleDateString('hi-IN')}
+                      {t('completedDate')}: {new Date(deal.updatedAt).toLocaleDateString()}
                     </Text>
                     <View style={[styles.statusPill, { backgroundColor: '#E3FCEF' }]}>
-                      <Text style={[styles.statusPillText, { color: '#00875A' }]}>पूर्ण (Completed)</Text>
+                      <Text style={[styles.statusPillText, { color: '#00875A' }]}>{t('completedStatus')}</Text>
                     </View>
                   </View>
                 </View>

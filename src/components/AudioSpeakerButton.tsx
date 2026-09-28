@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AudioSpeakerButtonProps {
   label?: string;
@@ -18,12 +19,14 @@ interface AudioSpeakerButtonProps {
 }
 
 export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
-  label = 'सुनें (Listen)',
+  label,
   size = 'medium',
   style,
   onPress,
 }) => {
+  const { t } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(false);
+  const displayLabel = label || t('listen');
 
   const handlePress = () => {
     setIsPlaying(true);
@@ -48,7 +51,7 @@ export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
       onPress={handlePress}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel={`Audio readout: ${label}`}
+      accessibilityLabel={`Audio readout: ${displayLabel}`}
     >
       <View style={styles.contentRow}>
         <Ionicons
@@ -64,7 +67,7 @@ export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
             isPlaying && styles.textPlaying,
           ]}
         >
-          {isPlaying ? 'आवाज चल रही है...' : label}
+          {isPlaying ? t('audioPlaying') : displayLabel}
         </Text>
       </View>
     </TouchableOpacity>

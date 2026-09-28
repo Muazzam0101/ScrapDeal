@@ -9,6 +9,7 @@ export interface Deal {
   lotId: string;
   collectorId: string;
   recyclerId: string;
+  recyclerName?: string;
   offerId: string;
   materialCategoryId: string;
   materialName: string;

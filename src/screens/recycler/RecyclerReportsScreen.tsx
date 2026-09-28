@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { AppHeader } from '../../components/AppHeader';
@@ -15,7 +15,7 @@ export const RecyclerReportsScreen: React.FC<{ navigation: any }> = ({ navigatio
   const { t } = useLanguage();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('tabReports')}
         showBack={true}
@@ -30,21 +30,21 @@ export const RecyclerReportsScreen: React.FC<{ navigation: any }> = ({ navigatio
         {/* Metric Cards Outline Placeholder */}
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>कुल खरीद (Total Purchase)</Text>
+            <Text style={styles.metricLabel}>{t('totalPurchases')}</Text>
             <Text style={styles.metricValue}>₹ 0</Text>
           </View>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>कुल वजन (Total Quantity)</Text>
-            <Text style={styles.metricValue}>0 kg</Text>
+            <Text style={styles.metricLabel}>{t('totalWeight')}</Text>
+            <Text style={styles.metricValue}>0 {t('kg')}</Text>
           </View>
         </View>
 
         {/* Dynamic Empty State */}
         <EmptyState
           icon="bar-chart-outline"
-          title="रिपोर्ट उपलब्ध नहीं है"
-          description="Transaction data available होने के बाद reports दिखाई जाएंगी।"
-          actionTitle="लॉट्स पर जाएं"
+          title={t('noReportsAvailable')}
+          description={t('noReportsDesc')}
+          actionTitle={t('exploreLots')}
           onActionPress={() => navigation.navigate('RecyclerLots')}
         />
       </ScrollView>

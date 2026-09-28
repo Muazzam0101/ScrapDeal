@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { SecondaryButton } from './SecondaryButton';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ErrorStateProps {
   message?: string;
@@ -11,21 +12,24 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
-  message = 'इंटरनेट कनेक्शन में समस्या है। कृपया पुनः प्रयास करें।',
+  message,
   onRetry,
   style,
 }) => {
+  const { t } = useLanguage();
+  const displayMessage = message || t('networkError');
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.iconCircle}>
         <Ionicons name="alert-circle-outline" size={36} color={colors.danger} />
       </View>
-      <Text style={styles.title}>लोड करने में असमर्थ</Text>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.title}>{t('unableToLoad')}</Text>
+      <Text style={styles.message}>{displayMessage}</Text>
       {onRetry && (
         <View style={styles.retryContainer}>
           <SecondaryButton
-            title="पुनः प्रयास करें (Retry)"
+            title={t('retry')}
             icon="refresh"
             onPress={onRetry}
           />

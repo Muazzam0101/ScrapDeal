@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -81,7 +81,7 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('priceScreenTitle')}
         showBack={true}
@@ -94,12 +94,12 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.promptTitle}>मूल्य निर्धारण व बाजार अनुमान</Text>
+        <Text style={styles.promptTitle}>{t('priceAndMarketEstimate')}</Text>
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>बाजार डेटा और AI अनुमान लोड हो रहा है...</Text>
+            <Text style={styles.loadingText}>{t('loadingMarketData')}</Text>
           </View>
         ) : (
           <>
@@ -109,10 +109,10 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
                 <View style={styles.cardHeader}>
                   <View style={styles.badgeRow}>
                     <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
-                    <Text style={styles.badgeText}>AI अनुमानित बाजार सीमा (AI Estimated Range)</Text>
+                    <Text style={styles.badgeText}>{t('aiEstimatedRange')}</Text>
                   </View>
                   <Text style={styles.confidenceText}>
-                    AI विश्वास: {Math.round((estimateResult.confidence || 0) * 100)}%
+                    {t('aiConfidence')}: {Math.round((estimateResult.confidence || 0) * 100)}%
                   </Text>
                 </View>
 
@@ -123,14 +123,14 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
                     {estimateResult.estimatedMax?.toLocaleString('en-IN')}
                   </Text>
                   <Text style={styles.rangeAverage}>
-                    अनुमानित औसत (Estimated Avg): ₹
+                    {t('aiEstimatedAverage')}: ₹
                     {estimateResult.estimatedAverage?.toLocaleString('en-IN')}
                   </Text>
                 </View>
 
                 {/* Basis */}
                 <View style={styles.basisContainer}>
-                  <Text style={styles.basisHeader}>अनुमान का आधार (Based on):</Text>
+                  <Text style={styles.basisHeader}>{t('aiBasedOn')}:</Text>
                   {estimateResult.basis?.map((item, idx) => (
                     <View key={idx} style={styles.basisRow}>
                       <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
@@ -139,7 +139,7 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
                   ))}
                   {estimateResult.lastMarketDataAt && (
                     <Text style={styles.timestampText}>
-                      अंतिम अपडेट: {new Date(estimateResult.lastMarketDataAt).toLocaleDateString()}
+                      {t('lastUpdated')}: {new Date(estimateResult.lastMarketDataAt).toLocaleDateString()}
                     </Text>
                   )}
                 </View>
@@ -148,19 +148,19 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
                 <View style={styles.disclaimerBox}>
                   <Ionicons name="information-circle-outline" size={14} color={colors.textSecondary} />
                   <Text style={styles.disclaimerText}>
-                    AI अनुमान उपलब्ध ScrapDeal बाजार व लेन-देन डेटा पर आधारित हैं और बाध्यकारी नहीं हैं।
+                    {t('aiDisclaimer')}
                   </Text>
                 </View>
               </View>
             ) : (
               <View style={styles.unavailableCard}>
                 <Ionicons name="stats-chart-outline" size={32} color={colors.textMuted} />
-                <Text style={styles.unavailableTitle}>बाजार अनुमान अनुपलब्ध</Text>
+                <Text style={styles.unavailableTitle}>{t('marketEstimateUnavailable')}</Text>
                 <Text style={styles.unavailableText}>
-                  {estimateResult?.message || 'Not enough market data for AI estimate.'}
+                  {estimateResult?.message || t('aiNotEnoughMarketData')}
                 </Text>
                 <Text style={styles.unavailableSubtext}>
-                  इस सामग्री के लिए पर्याप्त ऐतिहासिक लेन-देन दर्ज नहीं हैं। कोई कृत्रिम भाव नहीं दिखाया जा रहा है।
+                  {t('notEnoughMarketDataDesc')}
                 </Text>
               </View>
             )}
@@ -168,19 +168,19 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
             {/* SECTION 2: ACTUAL RECYCLER RATES & OFFERS (VISUALLY SEPARATE) */}
             <View style={styles.separatorContainer}>
               <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>वास्तविक बाजार दरें (Actual Recycler Rates)</Text>
+              <Text style={styles.separatorText}>{t('actualMarketRates')}</Text>
               <View style={styles.separatorLine} />
             </View>
 
             <View style={styles.recyclerSection}>
-              <Text style={styles.sectionHeader}>सक्रिय रीसाइक्लर दरें ({materialName})</Text>
+              <Text style={styles.sectionHeader}>{t('activeRecyclerRates')} ({materialName})</Text>
 
               {activeRecyclerRates.length > 0 ? (
                 activeRecyclerRates.map((rate, idx) => (
                   <View key={rate.localId || idx} style={styles.rateCard}>
                     <View style={styles.rateHeader}>
                       <Text style={styles.recyclerName}>
-                        {rate.recyclerName || 'अधिकृत रीसाइक्लर'}
+                        {rate.recyclerName || t('authorizedRecycler')}
                       </Text>
                       {rate.locationCity && (
                         <Text style={styles.locationBadge}>{rate.locationCity}</Text>
@@ -189,10 +189,10 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
                     <View style={styles.rateBody}>
                       <Text style={styles.rateFigure}>
                         ₹{rate.ratePerKg}
-                        <Text style={styles.rateUnit}> /किग्रा</Text>
+                        <Text style={styles.rateUnit}> {t('perKg')}</Text>
                       </Text>
                       <Text style={styles.rateTotal}>
-                        अनुमानित कुल ({weightKg} किग्रा): ₹{Math.round(rate.ratePerKg * (weightKg || 1))}
+                        {t('estimatedTotal')} ({weightKg} kg): ₹{Math.round(rate.ratePerKg * (weightKg || 1))}
                       </Text>
                     </View>
                   </View>
@@ -200,9 +200,9 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
               ) : (
                 <View style={styles.emptyRatesBox}>
                   <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />
-                  <Text style={styles.emptyRatesTitle}>सीधे ऑफर प्राप्त होंगे</Text>
+                  <Text style={styles.emptyRatesTitle}>{t('directOffersWillBeReceived')}</Text>
                   <Text style={styles.emptyRatesText}>
-                    लॉट प्रकाशित होने पर रीसाइक्लर आपको सीधे वास्तविक ऑफर भेजेंगे। आप अपनी पसंद का ऑफर स्वीकार कर सकते हैं।
+                    {t('directOffersDesc')}
                   </Text>
                 </View>
               )}
@@ -213,7 +213,7 @@ export const PriceValueScreen: React.FC<PriceValueScreenProps> = ({ navigation }
 
       <View style={styles.bottomBar}>
         <PrimaryButton
-          title="लॉट सारांश देखें (View Summary) →"
+          title={t('viewSummaryCTA')}
           onPress={handleContinue}
         />
       </View>

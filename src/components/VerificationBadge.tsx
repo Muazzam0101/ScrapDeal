@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { VerificationStatus } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface VerificationBadgeProps {
   status?: VerificationStatus;
@@ -17,6 +18,7 @@ export const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   label,
   size = 'small',
 }) => {
+  const { t } = useLanguage();
   const isSmall = size === 'small';
 
   // Determine label if not explicitly provided
@@ -25,43 +27,43 @@ export const VerificationBadge: React.FC<VerificationBadgeProps> = ({
     if (type === 'identity') {
       switch (status) {
         case 'verified':
-          badgeLabel = 'पहचान सत्यापित (Identity Verified)';
+          badgeLabel = t('identityVerifiedBadge');
           break;
         case 'pending':
-          badgeLabel = 'सत्यापन लंबित (Verification Pending)';
+          badgeLabel = t('verificationPendingBadge');
           break;
         case 'failed':
-          badgeLabel = 'सत्यापन विफल (Failed)';
+          badgeLabel = t('verificationFailedBadge');
           break;
         case 'expired':
-          badgeLabel = 'सत्यापन समाप्त (Expired)';
+          badgeLabel = t('verificationExpiredBadge');
           break;
         case 'not_started':
         default:
-          badgeLabel = 'अपुष्ट (Not Verified)';
+          badgeLabel = t('notVerifiedBadge');
           break;
       }
     } else if (type === 'authorization') {
       switch (status) {
         case 'verified':
-          badgeLabel = 'अधिकृत रीसाइक्लर (Authorization Verified)';
+          badgeLabel = t('authVerifiedBadge');
           break;
         case 'pending':
-          badgeLabel = 'प्राधिकरण लंबित (Auth Pending)';
+          badgeLabel = t('authPendingBadge');
           break;
         case 'failed':
-          badgeLabel = 'प्राधिकरण अस्वीकृत (Auth Rejected)';
+          badgeLabel = t('authRejectedBadge');
           break;
         case 'expired':
-          badgeLabel = 'लाइसेंस समाप्त (License Expired)';
+          badgeLabel = t('licenseExpiredBadge');
           break;
         case 'not_started':
         default:
-          badgeLabel = 'प्राधिकरण नहीं (No Regulatory Auth)';
+          badgeLabel = t('noAuthBadge');
           break;
       }
     } else {
-      badgeLabel = 'सत्यापन स्थिति (Status)';
+      badgeLabel = t('status');
     }
   }
 

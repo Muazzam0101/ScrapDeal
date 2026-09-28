@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, borderRadius, spacing } from '../theme';
 import { useNetworkStore } from '../store/useNetworkStore';
 import { useSyncStore } from '../store/useSyncStore';
+import { useLanguage } from '../context/LanguageContext';
 
 export const OfflineIndicator: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const { isOnline, simulateConnectivity } = useNetworkStore();
   const { isSyncing, pendingCount, triggerSync } = useSyncStore();
 
@@ -15,13 +19,15 @@ export const OfflineIndicator: React.FC = () => {
     }
   };
 
+  const topPaddingStyle = { paddingTop: Math.max(insets.top, 6) };
+
   // 1. When actively syncing
   if (isOnline && isSyncing) {
     return (
-      <View style={[styles.bar, styles.syncingBar]}>
+      <View style={[styles.bar, styles.syncingBar, topPaddingStyle]}>
         <ActivityIndicator size="small" color={colors.primaryDark} style={styles.spinner} />
         <Text style={styles.syncingText}>
-          सिंक हो रहा है... ({pendingCount} शेष)
+          {t('syncingActiveNotice').replace('{count}', String(pendingCount))}
         </Text>
       </View>
     );
@@ -30,10 +36,10 @@ export const OfflineIndicator: React.FC = () => {
   // 2. When device is OFFLINE
   if (!isOnline) {
     return (
-      <View style={[styles.bar, styles.offlineBar]}>
+      <View style={[styles.bar, styles.offlineBar, topPaddingStyle]}>
         <View style={styles.dotOrange} />
         <Text style={styles.offlineText}>
-          🟠 ऑफलाइन — डेटा सुरक्षित है, इंटरनेट आने पर सिंक होगा
+          {t('offlineModeSyncNotice')}
         </Text>
       </View>
     );
@@ -43,13 +49,13 @@ export const OfflineIndicator: React.FC = () => {
   if (pendingCount > 0) {
     return (
       <TouchableOpacity
-        style={[styles.bar, styles.pendingBar]}
+        style={[styles.bar, styles.pendingBar, topPaddingStyle]}
         onPress={handlePress}
         activeOpacity={0.8}
       >
         <Ionicons name="cloud-upload-outline" size={16} color={colors.warning} />
         <Text style={styles.pendingText}>
-          {pendingCount} बदलाव सिंक होने बाकी हैं (टैप करें)
+          {t('syncingPendingNotice').replace('{count}', String(pendingCount))}
         </Text>
       </TouchableOpacity>
     );

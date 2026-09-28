@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -58,7 +58,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   }, [activeLotId, dealId]);
 
   const totalAmount = tx?.totalAmount || deal?.agreedTotalAmount || 0;
-  const materialName = tx?.materialName || deal?.materialName || 'कबाड़ (Scrap)';
+  const materialName = tx?.materialName || deal?.materialName || 'Scrap';
 
   const handleFinishPayment = async () => {
     setSubmitting(true);
@@ -68,14 +68,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       navigation.navigate('Success', {
         lotId: activeLotId,
         amount: totalAmount,
-        recyclerName: 'पंजीकृत रीसाइक्लर',
+        recyclerName: deal?.recyclerName || t('registeredRecycler'),
       });
     } catch (e: any) {
       console.warn('[PaymentScreen] Error recording payment:', e);
       navigation.navigate('Success', {
         lotId: activeLotId,
         amount: totalAmount,
-        recyclerName: 'पंजीकृत रीसाइक्लर',
+        recyclerName: deal?.recyclerName || t('registeredRecycler'),
       });
     } finally {
       setSubmitting(false);
@@ -83,7 +83,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('paymentTitle')}
         showBack={true}
@@ -98,12 +98,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
 
         {/* Real Amount Summary */}
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>प्राप्त होने वाली कुल राशि</Text>
+          <Text style={styles.amountLabel}>{t('totalAmountDue')}</Text>
           <Text style={styles.amountValue}>
             ₹ {totalAmount.toLocaleString('en-IN')}
           </Text>
           <Text style={styles.materialSub}>
-            सामग्री: {materialName} • {tx?.weightKg || deal?.agreedWeightKg || ''} किग्रा
+            {t('materialCategory')}: {materialName} • {tx?.weightKg || deal?.agreedWeightKg || ''} {t('kg')}
           </Text>
         </View>
 
@@ -111,8 +111,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         <PaymentMethodCard
           method="cash"
           title={t('payCash')}
-          subtitle="कलेक्टर को सीधे नकद भुगतान करें"
-          badgeText="नकद (Cash Record)"
+          subtitle={t('payCashSubtitle')}
+          badgeText={t('cashRecordBadge')}
           isSelected={paymentMethod === 'cash'}
           onSelect={() => setPaymentMethod('cash')}
         />
@@ -122,7 +122,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           method="upi"
           title={t('payUpi')}
           subtitle="Google Pay / PhonePe / Paytm / BHIM"
-          badgeText="UPI रिकॉर्ड (Unverified)"
+          badgeText={t('upiRecordBadge')}
           isSelected={paymentMethod === 'upi'}
           onSelect={() => setPaymentMethod('upi')}
         />
@@ -131,7 +131,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         <View style={styles.noticeBox}>
           <Ionicons name="information-circle" size={20} color="#D97706" />
           <Text style={styles.noticeText}>
-            ध्यान दें: यह केवल भुगतान का माध्यम दर्ज करता है। ऐप किसी स्वचालित UPI गेटवे से जुड़ा नहीं है। नकद या UPI लेनदेन स्वयं जाँचें।
+            {t('paymentNotice')}
           </Text>
         </View>
       </ScrollView>
@@ -139,7 +139,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       {/* Primary CTA */}
       <View style={styles.bottomBar}>
         <PrimaryButton
-          title={submitting ? 'दर्ज किया जा रहा है...' : 'भुगतान दर्ज करें व समाप्त करें ✓'}
+          title={submitting ? t('recordingPayment') : t('recordPaymentAndFinish')}
           icon="checkmark-circle"
           onPress={handleFinishPayment}
           disabled={submitting}

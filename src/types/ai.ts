@@ -23,15 +23,24 @@ export interface AIPrediction {
   lastSyncedAt?: string;
 }
 
+export interface ScrapComponentBreakdown {
+  categoryId: MaterialCategoryId;
+  componentName: string; // e.g. "Motor Windings", "Blades", "Housing / Frame"
+  description?: string;
+}
+
 export interface MaterialRecognitionResult {
   isAvailable: boolean;
   predictedCategory?: MaterialCategoryId;
+  detectedObject?: string; // e.g. "Ceiling Fan", "Air Conditioner", "Computer Scrap"
+  possibleScrapMaterials?: ScrapComponentBreakdown[]; // Multi-material breakdown
   confidence?: number;
   alternatives?: AIPredictionAlternative[];
   requiresManualConfirmation?: boolean;
   modelName?: string;
   modelVersion?: string;
   errorMessage?: string;
+  detectedFeatures?: string;
 }
 
 export interface AIPriceEstimate {

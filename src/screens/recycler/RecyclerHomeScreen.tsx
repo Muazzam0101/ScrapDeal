@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -96,7 +96,7 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         showBack={false}
         showRoleSwitch={true}
@@ -183,7 +183,7 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
             icon="cube-outline"
             title={t('noNewLots')}
             description={t('noNewLotsDesc')}
-            actionTitle="लॉट्स रिफ्रेश करें (Refresh)"
+            actionTitle={t('refresh')}
             onActionPress={fetchAvailableLots}
           />
         ) : (

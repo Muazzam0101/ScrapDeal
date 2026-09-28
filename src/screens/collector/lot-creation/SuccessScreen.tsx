@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -36,7 +36,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -64,14 +64,14 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
           <View style={styles.divider} />
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>सामग्री (Category)</Text>
+            <Text style={styles.detailLabel}>{t('materialCategory')}</Text>
             <Text style={styles.detailValue}>
               {categoryId ? t(`cat${categoryId.charAt(0).toUpperCase() + categoryId.slice(1)}` as any) : 'PCB'}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>वजन (Weight)</Text>
+            <Text style={styles.detailLabel}>{t('weight')}</Text>
             <Text style={styles.detailValue}>{weightKg} {t('kg')}</Text>
           </View>
 
@@ -88,8 +88,8 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>स्थिति (Status)</Text>
-            <StatusBadge label="सफल (Success)" variant="success" icon="checkmark-circle" />
+            <Text style={styles.detailLabel}>{t('status') || 'Status'}</Text>
+            <StatusBadge label={t('statusSuccess')} variant="success" icon="checkmark-circle" />
           </View>
         </View>
 
@@ -101,7 +101,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
             onPress={handleGoHome}
           />
           <SecondaryButton
-            title="मेरी कमाई देखें (View Earnings)"
+            title={t('viewEarnings')}
             icon="wallet-outline"
             onPress={handleViewEarnings}
           />

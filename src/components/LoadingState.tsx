@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, StyleProp, ViewStyle } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
 
 interface LoadingStateProps {
   message?: string;
@@ -8,15 +9,18 @@ interface LoadingStateProps {
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'डेटा लोड हो रहा है...',
+  message,
   style,
 }) => {
+  const { t } = useLanguage();
+  const displayMessage = message || t('loading');
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.spinnerWrapper}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{displayMessage}</Text>
     </View>
   );
 };

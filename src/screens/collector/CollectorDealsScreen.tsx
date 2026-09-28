@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   RefreshControl,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -120,19 +120,19 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
     try {
       const deal = await acceptOffer(lotId, offerId, collectorId);
       Alert.alert(
-        'सौदा स्वीकृत! (Offer Accepted)',
-        `सौदा तय हो गया है! कुल राशि: ₹${deal.agreedTotalAmount}\nअब स्क्रैप का हैंडओवर करें।`,
+        t('offerAcceptedTitle'),
+        t('offerAcceptedDesc').replace('{amount}', String(deal.agreedTotalAmount)),
         [
           {
-            text: 'हैंडओवर करें (Hand Over)',
+            text: t('handOverNow'),
             onPress: () => navigation.navigate('Handover', { lotId, dealId: deal.localId }),
           },
-          { text: 'ठीक है (OK)', style: 'cancel' },
+          { text: t('ok'), style: 'cancel' },
         ]
       );
       await loadData();
     } catch (e: any) {
-      Alert.alert('त्रुटि (Error)', e?.message || 'ऑफर स्वीकार नहीं हो सका');
+      Alert.alert(t('errorTitle'), e?.message || t('acceptOfferFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -144,7 +144,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
       await rejectOffer(offerId, lotId);
       await loadData();
     } catch (e: any) {
-      Alert.alert('त्रुटि', 'ऑफर अस्वीकार नहीं हो सका');
+      Alert.alert(t('errorTitle'), t('rejectOfferFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -155,7 +155,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader
         title={t('tabDeals')}
         showBack={false}
@@ -181,7 +181,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                 activeTab === 'active' && styles.tabTextActive,
               ]}
             >
-              सक्रिय लॉट व सौदे ({activeLots.length})
+              {t('activeLotsAndDeals')} ({activeLots.length})
             </Text>
           </TouchableOpacity>
 
@@ -195,7 +195,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                 activeTab === 'completed' && styles.tabTextActive,
               ]}
             >
-              पूर्ण सौदे ({completedTxs.length})
+              {t('completedDealsCount')} ({completedTxs.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -203,12 +203,12 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
         {activeTab === 'active' ? (
           <>
             {isLoading && activeLots.length === 0 && (
-              <LoadingState message="सौदों की स्थिति जांची जा रही है..." />
+              <LoadingState message={t('checkingDealStatus')} />
             )}
 
             {error && activeLots.length === 0 && (
               <ErrorState
-                message="डेटा लोड करने में विफल।"
+                message={t('failedToLoadData')}
                 onRetry={loadData}
               />
             )}
@@ -216,8 +216,8 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
             {!isLoading && activeLots.length === 0 && (
               <EmptyState
                 icon="hand-left-outline"
-                title="अभी कोई सक्रिय सौदा नहीं है"
-                description="सामान बेचने के लिए नया लॉट बनाएँ। रीसाइक्लर के ऑफर यहाँ दिखाई देंगे।"
+                title={t('noActiveDeals')}
+                description={t('noActiveDealsDesc')}
                 actionTitle={t('sellGoodsCTA')}
                 onActionPress={() => navigation.navigate('MaterialCategory')}
               />
@@ -248,9 +248,9 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                       <View style={styles.handoverBannerLeft}>
                         <Ionicons name="checkmark-done-circle" size={24} color="#00875A" />
                         <View style={{ marginLeft: spacing.sm }}>
-                          <Text style={styles.handoverBannerTitle}>सौदा तय हो चुका है!</Text>
+                          <Text style={styles.handoverBannerTitle}>{t('dealConfirmed')}</Text>
                           <Text style={styles.handoverBannerSub}>
-                            राशि: ₹{deal?.agreedTotalAmount || lot.agreedTotalAmount} (हैंडओवर के लिए टैप करें)
+                            {t('amount')}: ₹{deal?.agreedTotalAmount || lot.agreedTotalAmount} ({t('tapToHandover')})
                           </Text>
                         </View>
                       </View>
@@ -264,7 +264,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                       <View style={styles.offersSectionHeader}>
                         <Ionicons name="pricetags" size={18} color={colors.primary} />
                         <Text style={styles.offersSectionTitle}>
-                          प्राप्त ऑफर ({offers.length}):
+                          {t('receivedOffers')} ({offers.length}):
                         </Text>
                       </View>
 
@@ -278,7 +278,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                             <View style={styles.offerHeaderRow}>
                               <View style={{ flex: 1 }}>
                                 <Text style={styles.offerRecyclerName}>
-                                  {offer.recyclerName || 'पंजीकृत रीसाइक्लर'}
+                                  {offer.recyclerName || t('registeredRecycler')}
                                 </Text>
                                 <View style={{ flexDirection: 'row', gap: 4, marginTop: 2 }}>
                                   <VerificationBadge type="authorization" status="verified" size="small" />
@@ -296,7 +296,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                                     isAccepted ? styles.badgeAcceptedText : isRejected ? styles.badgeRejectedText : styles.badgePendingText,
                                   ]}
                                 >
-                                  {isAccepted ? 'स्वीकृत' : isRejected ? 'अस्वीकृत' : 'लंबित (Pending)'}
+                                  {isAccepted ? t('accepted') : isRejected ? t('rejected') : t('pending')}
                                 </Text>
                               </View>
                             </View>
@@ -304,16 +304,16 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                             {/* Transparent Price Calculation Breakdown */}
                             <View style={styles.offerDetailsRow}>
                               <Text style={styles.offerRate}>
-                                ₹{offer.ratePerKg} / किग्रा
+                                ₹{offer.ratePerKg} {t('perKg')}
                               </Text>
                               <Text style={styles.offerTotal}>
-                                कुल: ₹{offer.totalAmount}
+                                {t('totalAmountLabel')}: ₹{offer.totalAmount}
                               </Text>
                             </View>
 
                             <View style={styles.offerBreakdownBanner}>
                               <Text style={styles.offerBreakdownText}>
-                                पारदर्शी गणना: {lot.weightKg} kg × ₹{offer.ratePerKg} = ₹{offer.totalAmount}
+                                {t('transparentCalculation')}: {lot.weightKg} kg × ₹{offer.ratePerKg} = ₹{offer.totalAmount}
                               </Text>
                             </View>
 
@@ -322,7 +322,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                                 <Ionicons name="alert-circle-outline" size={16} color="#B45309" />
                                 <Text style={styles.anomalyBannerText}>
                                   {offerAnomalies[offer.localId || offer.id]?.reason ||
-                                    'असामान्य दर पैटर्न: स्वीकार करने से पहले जांचें (Review before accepting)'}
+                                    t('unusualRatePatternWarning')}
                                 </Text>
                               </View>
                             )}
@@ -341,7 +341,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                                   onPress={() => handleRejectOffer(offer.localId || offer.id, lot.localId)}
                                   disabled={actionLoading === (offer.localId || offer.id)}
                                 >
-                                  <Text style={styles.rejectBtnText}>अस्वीकार</Text>
+                                  <Text style={styles.rejectBtnText}>{t('reject')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
@@ -352,7 +352,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                                   {actionLoading === (offer.localId || offer.id) ? (
                                     <ActivityIndicator size="small" color="#fff" />
                                   ) : (
-                                    <Text style={styles.acceptBtnText}>स्वीकार करें (Accept)</Text>
+                                    <Text style={styles.acceptBtnText}>{t('accept')}</Text>
                                   )}
                                 </TouchableOpacity>
                               </View>
@@ -367,7 +367,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                     <View style={styles.waitingForOffersBanner}>
                       <Ionicons name="time-outline" size={18} color={colors.textMuted} />
                       <Text style={styles.waitingForOffersText}>
-                        रीसाइक्लर से ऑफर की प्रतीक्षा है...
+                        {t('waitingForOffers')}
                       </Text>
                     </View>
                   )}
@@ -381,8 +381,8 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
             {completedTxs.length === 0 ? (
               <EmptyState
                 icon="checkmark-circle-outline"
-                title="कोई पूर्ण सौदा नहीं है"
-                description="पूरे हो चुके सौदे और रसीदें यहाँ दिखाई देंगी।"
+                title={t('noCompletedDeals')}
+                description={t('completedDealsDesc')}
                 actionTitle={t('sellGoodsCTA')}
                 onActionPress={() => navigation.navigate('MaterialCategory')}
               />
@@ -396,22 +396,18 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.txNumber}>{tx.transactionNumber}</Text>
-                        <Text style={styles.txMaterial}>{tx.materialName} • {tx.weightKg} किग्रा</Text>
+                        <Text style={styles.txMaterial}>{tx.materialName} • {tx.weightKg} kg</Text>
                       </View>
                       <Text style={styles.txAmount}>₹{tx.totalAmount}</Text>
                     </View>
 
                     <View style={styles.txFooterRow}>
                       <Text style={styles.txDate}>
-                        {new Date(tx.date).toLocaleDateString('hi-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {new Date(tx.date).toLocaleDateString()}
                       </Text>
                       <View style={styles.paymentMethodBadge}>
                         <Text style={styles.paymentMethodText}>
-                          भुगतान: {tx.paymentMethod.toUpperCase()} (पूर्ण)
+                          {t('paymentCompleted')} ({tx.paymentMethod.toUpperCase()})
                         </Text>
                       </View>
                     </View>

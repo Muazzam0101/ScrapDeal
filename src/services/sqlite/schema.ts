@@ -1,7 +1,4 @@
 export const CREATE_TABLES_SQL = `
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
-
   -- Users table (cached profile & auth metadata)
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,

@@ -62,30 +62,76 @@ export const aiRepository = {
   // --- Predictions ---
   async savePrediction(pred: AIPrediction): Promise<void> {
     const db = await getDatabase();
-    await db.runAsync(
-      `INSERT OR REPLACE INTO ai_predictions (
-        localId, remoteId, entityId, modelName, modelVersion,
-        predictedCategory, confidence, alternativesJson,
-        userConfirmed, finalCategory, feedbackNotes,
-        syncStatus, createdAt, lastSyncedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        pred.localId,
-        pred.remoteId || null,
-        pred.entityId,
-        pred.modelName,
-        pred.modelVersion,
-        pred.predictedCategory,
-        pred.confidence,
-        JSON.stringify(pred.alternatives || []),
-        pred.userConfirmed ? 1 : 0,
-        pred.finalCategory,
-        pred.feedbackNotes || null,
-        pred.syncStatus || 'pending',
-        pred.createdAt || new Date().toISOString(),
-        pred.lastSyncedAt || null,
-      ]
-    );
+    try {
+      await db.runAsync(
+        `INSERT OR REPLACE INTO ai_predictions (
+          localId, remoteId, entityId, modelName, modelVersion,
+          predictedCategory, confidence, alternativesJson,
+          userConfirmed, finalCategory, feedbackNotes,
+          syncStatus, createdAt, lastSyncedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          pred.localId,
+          pred.remoteId || null,
+          pred.entityId,
+          pred.modelName,
+          pred.modelVersion,
+          pred.predictedCategory,
+          pred.confidence,
+          JSON.stringify(pred.alternatives || []),
+          pred.userConfirmed ? 1 : 0,
+          pred.finalCategory,
+          pred.feedbackNotes || null,
+          pred.syncStatus || 'pending',
+          pred.createdAt || new Date().toISOString(),
+          pred.lastSyncedAt || null,
+        ]
+      );
+    } catch (err) {
+      console.warn('[aiRepository] savePrediction retry with explicit table creation:', err);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS ai_predictions (
+          localId TEXT PRIMARY KEY,
+          remoteId TEXT,
+          entityId TEXT NOT NULL,
+          modelName TEXT NOT NULL,
+          modelVersion TEXT NOT NULL,
+          predictedCategory TEXT NOT NULL,
+          confidence REAL NOT NULL,
+          alternativesJson TEXT,
+          userConfirmed INTEGER NOT NULL DEFAULT 1,
+          finalCategory TEXT NOT NULL,
+          feedbackNotes TEXT,
+          syncStatus TEXT NOT NULL DEFAULT 'pending',
+          createdAt TEXT NOT NULL,
+          lastSyncedAt TEXT
+        );
+      `);
+      await db.runAsync(
+        `INSERT OR REPLACE INTO ai_predictions (
+          localId, remoteId, entityId, modelName, modelVersion,
+          predictedCategory, confidence, alternativesJson,
+          userConfirmed, finalCategory, feedbackNotes,
+          syncStatus, createdAt, lastSyncedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          pred.localId,
+          pred.remoteId || null,
+          pred.entityId,
+          pred.modelName,
+          pred.modelVersion,
+          pred.predictedCategory,
+          pred.confidence,
+          JSON.stringify(pred.alternatives || []),
+          pred.userConfirmed ? 1 : 0,
+          pred.finalCategory,
+          pred.feedbackNotes || null,
+          pred.syncStatus || 'pending',
+          pred.createdAt || new Date().toISOString(),
+          pred.lastSyncedAt || null,
+        ]
+      );
+    }
   },
 
   async updatePredictionFeedback(

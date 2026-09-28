@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography, borderRadius } from '../../../theme';
@@ -121,13 +121,13 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
   const handleConfirmHandover = async () => {
     if (!deal) {
-      Alert.alert('त्रुटि', 'सौदा नहीं मिला');
+      Alert.alert(t('errorTitle'), t('dealNotFound'));
       return;
     }
 
     const weightNum = parseFloat(confirmedWeight) || deal.agreedWeightKg;
     if (weightNum <= 0) {
-      Alert.alert('त्रुटि', 'कृपया वैध वजन दर्ज करें');
+      Alert.alert(t('errorTitle'), t('pleaseEnterValidWeight'));
       return;
     }
 
@@ -145,22 +145,22 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
         if (res.transaction) {
           // Both confirmed!
           Alert.alert(
-            'हैंडओवर पूर्ण! (Handover Complete)',
-            `दोनों पक्षों द्वारा हैंडओवर सत्यापित हो चुका है। कुल राशि: ₹${res.transaction.totalAmount}`,
+            t('handoverCompleteTitle'),
+            t('handoverCompleteDesc').replace('{amount}', String(res.transaction.totalAmount)),
             [
               {
-                text: 'भुगतान विवरण देखें (Payment)',
+                text: t('viewPaymentCTA'),
                 onPress: () => navigation.navigate('Payment', { lotId: deal.lotId, dealId: deal.localId }),
               },
             ]
           );
         } else {
           Alert.alert(
-            'कलेक्टर पुष्टि दर्ज (Handover Confirmed)',
-            'आपकी ओर से हैंडओवर दर्ज हो गया है। रीसाइक्लर द्वारा पुष्टि होते ही सौदा पूर्ण हो जाएगा।',
+            t('collectorHandoverRecordedTitle'),
+            t('collectorHandoverRecordedDesc'),
             [
               {
-                text: 'भुगतान पर जाएँ (Payment)',
+                text: t('goToPaymentCTA'),
                 onPress: () => navigation.navigate('Payment', { lotId: deal.lotId, dealId: deal.localId }),
               },
             ]
@@ -178,22 +178,22 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
         if (res.transaction) {
           Alert.alert(
-            'हैंडओवर व लेनदेन पूर्ण! (Handover Complete)',
-            `स्क्रैप प्राप्ति सत्यापित हो चुकी है। कुल राशि: ₹${res.transaction.totalAmount}`,
+            t('handoverCompleteTitle'),
+            t('handoverCompleteDesc').replace('{amount}', String(res.transaction.totalAmount)),
             [
               {
-                text: 'लेन-देन सूची (Transactions)',
+                text: t('viewTransactionsCTA'),
                 onPress: () => navigation.navigate('RecyclerRoot', { screen: 'RecyclerTransactions' }),
               },
             ]
           );
         } else {
           Alert.alert(
-            'प्राप्ति दर्ज (Receipt Confirmed)',
-            'कलेक्टर द्वारा पुष्टि होते ही लेनदेन पूर्ण हो जाएगा।',
+            t('recyclerReceiptConfirmedTitle'),
+            t('recyclerReceiptConfirmedDesc'),
             [
               {
-                text: 'ठीक है (OK)',
+                text: t('ok'),
                 onPress: () => navigation.goBack(),
               },
             ]
@@ -201,7 +201,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
         }
       }
     } catch (e: any) {
-      Alert.alert('त्रुटि', e?.message || 'हैंडओवर पुष्टि में विफल');
+      Alert.alert(t('errorTitle'), e?.message || t('handoverFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -209,11 +209,11 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <AppHeader title={t('handoverTitle')} showBack={true} onBackPress={() => navigation.goBack()} />
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>हैंडओवर विवरण लोड किया जा रहा है...</Text>
+          <Text style={styles.loadingText}>{t('loadingHandoverDetails')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -222,7 +222,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
   const alreadyConfirmed = isCollector ? handover?.collectorConfirmed : handover?.recyclerConfirmed;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <AppHeader
         title={t('handoverTitle')}
         showBack={true}
@@ -234,22 +234,22 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.screenHeading}>{t('handoverTitle')}</Text>
         <Text style={styles.screenSub}>
-          कबाड़ सुपुर्दगी की पुष्टि करें। वास्तविक वजन और फोटो दर्ज करें।
+          {t('handoverSubtitle')}
         </Text>
 
         {/* Deal Summary Box */}
         {deal && (
           <View style={styles.dealSummaryCard}>
             <View style={styles.dealSummaryRow}>
-              <Text style={styles.dealSummaryLabel}>सामग्री (Material):</Text>
+              <Text style={styles.dealSummaryLabel}>{t('materialCategory')}:</Text>
               <Text style={styles.dealSummaryValue}>{deal.materialName}</Text>
             </View>
             <View style={styles.dealSummaryRow}>
-              <Text style={styles.dealSummaryLabel}>तय दर (Agreed Rate):</Text>
-              <Text style={styles.dealSummaryValue}>₹{deal.agreedRatePerKg} / किग्रा</Text>
+              <Text style={styles.dealSummaryLabel}>{t('agreedRate')}:</Text>
+              <Text style={styles.dealSummaryValue}>₹{deal.agreedRatePerKg} {t('perKg')}</Text>
             </View>
             <View style={styles.dealSummaryRow}>
-              <Text style={styles.dealSummaryLabel}>कुल तय राशि:</Text>
+              <Text style={styles.dealSummaryLabel}>{t('agreedTotalAmount')}:</Text>
               <Text style={styles.dealSummaryTotal}>₹{deal.agreedTotalAmount}</Text>
             </View>
           </View>
@@ -257,7 +257,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
         {/* Verification Status Matrix */}
         <View style={styles.verificationMatrix}>
-          <Text style={styles.matrixTitle}>सत्यापन स्थिति (Confirmation Status):</Text>
+          <Text style={styles.matrixTitle}>{t('confirmationStatus')}:</Text>
           <View style={styles.matrixRow}>
             <View style={styles.matrixItem}>
               <Ionicons
@@ -266,7 +266,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
                 color={handover?.collectorConfirmed ? '#00875A' : colors.textMuted}
               />
               <Text style={styles.matrixText}>
-                कलेक्टर: {handover?.collectorConfirmed ? 'सत्यापित ✅' : 'लंबित ⏳'}
+                {t('collectorVerified')}: {handover?.collectorConfirmed ? t('verifiedBadge') : t('pendingBadge')}
               </Text>
             </View>
             <View style={styles.matrixItem}>
@@ -276,7 +276,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
                 color={handover?.recyclerConfirmed ? '#00875A' : colors.textMuted}
               />
               <Text style={styles.matrixText}>
-                रीसाइक्लर: {handover?.recyclerConfirmed ? 'सत्यापित ✅' : 'लंबित ⏳'}
+                {t('recyclerVerified')}: {handover?.recyclerConfirmed ? t('verifiedBadge') : t('pendingBadge')}
               </Text>
             </View>
           </View>
@@ -284,7 +284,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
         {/* Actual Confirmed Weight Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>तौल कांटा वजन (Actual Verified Weight in KG):</Text>
+          <Text style={styles.inputLabel}>{t('actualVerifiedWeight')}:</Text>
           <View style={styles.weightInputRow}>
             <TextInput
               style={styles.weightInput}
@@ -299,18 +299,18 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
         {/* Handover Photo Capture */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>हैंडओवर फोटो (Handover Photo):</Text>
+          <Text style={styles.inputLabel}>{t('handoverPhoto')}:</Text>
           {handoverPhoto ? (
             <View style={styles.photoPreviewWrapper}>
               <Image source={{ uri: handoverPhoto }} style={styles.photoPreview} />
               <TouchableOpacity style={styles.changePhotoBtn} onPress={handleCapturePhoto}>
                 <Ionicons name="camera" size={16} color="#fff" />
-                <Text style={styles.changePhotoBtnText}>फोटो बदलें</Text>
+                <Text style={styles.changePhotoBtnText}>{t('changePhoto')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <SecondaryButton
-              title="तौल / हैंडओवर की फोटो लें"
+              title={t('takeHandoverPhoto')}
               icon="camera-outline"
               onPress={handleCapturePhoto}
             />
@@ -319,12 +319,12 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
 
         {/* Optional Notes Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>टिप्पणी (Optional Notes):</Text>
+          <Text style={styles.inputLabel}>{t('optionalNotes')}:</Text>
           <TextInput
             style={styles.notesInput}
             value={notes}
             onChangeText={setNotes}
-            placeholder="जैसे: कांटा सही था, पैकिंग साफ़ थी..."
+            placeholder={t('notesPlaceholder')}
             multiline
           />
         </View>
@@ -335,12 +335,12 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
         <PrimaryButton
           title={
             submitting
-              ? 'पुष्टि की जा रही है...'
+              ? t('confirming')
               : alreadyConfirmed
-              ? 'पुष्टि हो चुकी है (Already Confirmed) ✓'
+              ? t('alreadyConfirmed')
               : isCollector
-              ? 'कबाड़ हैंडओवर करें (Hand Over Scrap) 🤝'
-              : 'प्राप्ति की पुष्टि करें (Confirm Receipt) ✅'
+              ? t('handOverScrapCTA')
+              : t('confirmReceiptCTA')
           }
           onPress={handleConfirmHandover}
           disabled={submitting || Boolean(alreadyConfirmed)}
