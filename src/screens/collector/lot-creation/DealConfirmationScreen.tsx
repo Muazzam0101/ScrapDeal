@@ -19,6 +19,8 @@ import { networkService } from '../../../services/connectivity/networkService';
 import { getCategoryDisplayName } from '../../../constants/materialCategories';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
+import { notificationService } from '../../../services/notification/notificationService';
+import { isHazardousCategory, getSafetyProfile } from '../../../services/safety/safetyRulesEngine';
 
 interface DealConfirmationScreenProps {
   navigation: any;
@@ -63,6 +65,24 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
       });
 
       setCreatedLotId(lot.localId);
+
+      // Phase 8: Safety Notification for hazardous scrap lots (e.g. Battery, CRT, PCB, Cables)
+      if (isHazardousCategory(finalCategory)) {
+        try {
+          const profile = getSafetyProfile(finalCategory, (currentUser?.language as any) || 'hi');
+          await notificationService.sendNotification({
+            userId: collectorId,
+            type: 'safety_warning',
+            title: `Safety Notice: ${profile.title}`,
+            body: profile.warningBanner,
+            entityType: 'lot',
+            entityId: lot.localId,
+          });
+        } catch (notifErr) {
+          console.warn('[DealConfirmationScreen] Safety notification dispatch notice:', notifErr);
+        }
+      }
+
       setSubmitting(false);
 
       // Navigate to Recycler Discovery (rule-based matching)
@@ -92,6 +112,21 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
         <Text style={styles.screenSub}>
           {t('dealConfirmationSubtitle')}
         </Text>
+
+        {/* Phase 8: Deterministic Safety Warning for hazardous materials (Non-blocking) */}
+        {isHazardousCategory(categoryId || 'other') && (
+          <View style={styles.hazardWarningCard}>
+            <View style={styles.hazardWarningHeader}>
+              <Ionicons name="warning" size={20} color={colors.danger} />
+              <Text style={styles.hazardWarningTitle}>
+                {materialLabel} - Handle Carefully
+              </Text>
+            </View>
+            <Text style={styles.hazardWarningText}>
+              {getSafetyProfile(categoryId || 'other', (currentUser?.language as any) || 'hi').warningBanner}
+            </Text>
+          </View>
+        )}
 
         {/* Real Summary Card */}
         <View style={styles.summaryCard}>
@@ -284,5 +319,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+  },
+  hazardWarningCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  hazardWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  hazardWarningTitle: {
+    ...typography.h4,
+    fontSize: 14,
+    color: colors.danger,
+    fontWeight: '800',
+  },
+  hazardWarningText: {
+    ...typography.caption,
+    color: '#991B1B',
+    fontWeight: '600',
   },
 });

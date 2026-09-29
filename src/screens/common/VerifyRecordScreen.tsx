@@ -91,9 +91,12 @@ export const VerifyRecordScreen: React.FC<VerifyRecordScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.privacyNote}>
-            🛡️ सार्वजनिक गोपनीयता सुरक्षा: व्यक्तिगत फोन नंबर, बैंक खाते या गोपनीय विवरण यहां कभी प्रदर्शित नहीं किए जाते।
-          </Text>
+          <View style={styles.privacyNoteRow}>
+            <Ionicons name="shield-checkmark-outline" size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
+            <Text style={styles.privacyNote}>
+              सार्वजनिक गोपनीयता सुरक्षा: व्यक्तिगत फोन नंबर, बैंक खाते या गोपनीय विवरण यहां कभी प्रदर्शित नहीं किए जाते।
+            </Text>
+          </View>
         </View>
 
         {/* Verification Results */}
@@ -242,12 +245,18 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontWeight: '800',
   },
+  privacyNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 6,
+  },
   privacyNote: {
     ...typography.caption,
     color: colors.textMuted,
     fontSize: 11,
     lineHeight: 16,
-    marginTop: 4,
+    flex: 1,
   },
   resultCard: {
     backgroundColor: colors.card,

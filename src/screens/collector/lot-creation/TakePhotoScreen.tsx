@@ -23,6 +23,8 @@ import {
 } from '../../../services/ai/materialRecognitionService';
 import { MaterialRecognitionResult, MaterialCategoryId } from '../../../types';
 import { getCategoryDisplayName } from '../../../constants/materialCategories';
+import { imageCompressionService } from '../../../services/image/imageCompressionService';
+import { isHazardousCategory, getSafetyProfile } from '../../../services/safety/safetyRulesEngine';
 
 interface TakePhotoScreenProps {
   navigation: any;
@@ -44,7 +46,7 @@ const APPLIANCE_ITEMS: Array<{ id: MaterialCategoryId; label: string; icon: stri
 ];
 
 export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, route }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const {
     photoCaptured,
     setPhotoCaptured,
@@ -77,6 +79,10 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
 
   const activePhotoUri = photoUris.length > 0 ? photoUris[photoUris.length - 1] : null;
 
+  // Deterministic Safety Profile check for detected materials (Phase 8)
+  const hazardousCategory = selectedMaterials.find((m) => isHazardousCategory(m)) || (isHazardousCategory(selectedAppliance) ? selectedAppliance : null);
+  const safetyReminderProfile = hazardousCategory ? getSafetyProfile(hazardousCategory, (language as any) || 'hi') : null;
+
   const analyzePhoto = async (
     uri: string,
     options?: { base64?: string; fileName?: string },
@@ -85,6 +91,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
     setIsAnalyzing(true);
     const catToUse = overrideCategory || selectedAppliance;
     try {
+      await imageCompressionService.optimizePhoto(uri, 'ai_inference');
       const result = await materialRecognitionService.classifyScrapPhoto(uri, {
         ...options,
         selectedCategory: catToUse,
@@ -154,7 +161,8 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
         });
         if (!result.canceled && result.assets && result.assets.length > 0) {
           const asset = result.assets[0];
-          photoUri = asset.uri;
+          const optimized = await imageCompressionService.optimizePhoto(asset.uri, 'traceability');
+          photoUri = optimized.uri;
           addPhotoUri(photoUri);
           await analyzePhoto(photoUri, {
             base64: asset.base64 || undefined,
@@ -164,7 +172,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
       }
     } catch (err) {
       console.warn('[TakePhotoScreen] Camera launch error, using fallback:', err);
-      const fallbackUri = `file:///scrapdeal_offline_photo_${Date.now()}.jpg`;
+      const fallbackUri = imageCompressionService.generateLocalPhotoPath('lot');
       addPhotoUri(fallbackUri);
       await analyzePhoto(fallbackUri);
     }
@@ -175,7 +183,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       let photoUri: string;
       if (!permission.granted) {
-        photoUri = `file:///scrapdeal_offline_photo_${Date.now()}.jpg`;
+        photoUri = imageCompressionService.generateLocalPhotoPath('lot');
         addPhotoUri(photoUri);
         await analyzePhoto(photoUri);
       } else {
@@ -188,7 +196,8 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
         });
         if (!result.canceled && result.assets && result.assets.length > 0) {
           const asset = result.assets[0];
-          photoUri = asset.uri;
+          const optimized = await imageCompressionService.optimizePhoto(asset.uri, 'traceability');
+          photoUri = optimized.uri;
           addPhotoUri(photoUri);
           await analyzePhoto(photoUri, {
             base64: asset.base64 || undefined,
@@ -198,7 +207,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
       }
     } catch (err) {
       console.warn('[TakePhotoScreen] Gallery pick error, using fallback:', err);
-      const fallbackUri = `file:///scrapdeal_offline_photo_${Date.now()}.jpg`;
+      const fallbackUri = imageCompressionService.generateLocalPhotoPath('lot');
       addPhotoUri(fallbackUri);
       await analyzePhoto(fallbackUri);
     }
@@ -293,7 +302,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
 
               <View style={styles.guidanceBox}>
                 <Ionicons name="scan-outline" size={18} color={colors.primaryDark} />
-                <Text style={styles.guidanceText}>{t('takePhotoGuidance')}</Text>
+                <Text style={styles.guidanceText}>{t('framingGuidance') || t('takePhotoGuidance')}</Text>
               </View>
             </View>
           </View>
@@ -323,7 +332,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
               <TouchableOpacity
                 style={styles.galleryButton}
                 onPress={() => {
-                  const fallbackUri = `file:///scrapdeal_mock_lot_${Date.now()}.jpg`;
+                  const fallbackUri = imageCompressionService.generateLocalPhotoPath('mock_lot');
                   addPhotoUri(fallbackUri);
                   analyzePhoto(fallbackUri);
                 }}
@@ -369,6 +378,31 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, ro
               <View style={styles.aiLoadingBox}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.aiLoadingText}>{t('aiAnalyzing')}</Text>
+              </View>
+            )}
+
+            {/* Phase 8: AI + Category Safety Reminder Banner (Deterministic, Non-blocking) */}
+            {safetyReminderProfile && (
+              <View style={[styles.safetyReminderBox, shadows.sm]}>
+                <View style={styles.safetyReminderHeader}>
+                  <Ionicons name="warning" size={20} color={colors.danger} />
+                  <Text style={styles.safetyReminderTitle}>
+                    Safety Reminder: {safetyReminderProfile.title}
+                  </Text>
+                </View>
+                <Text style={styles.safetyReminderText}>
+                  {safetyReminderProfile.warningBanner}
+                </Text>
+                <View style={styles.safetyReminderPills}>
+                  {safetyReminderProfile.dontList.slice(0, 2).map((dont, idx) => (
+                    <View key={idx} style={styles.safetyReminderDontRow}>
+                      <Ionicons name="close-circle" size={14} color={colors.danger} />
+                      <Text style={styles.safetyReminderDont}>
+                        {dont}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
 
@@ -1040,5 +1074,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 10,
     marginTop: 2,
+  },
+  safetyReminderBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  safetyReminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  safetyReminderTitle: {
+    ...typography.h4,
+    fontSize: 14,
+    color: colors.danger,
+    fontWeight: '800',
+  },
+  safetyReminderText: {
+    ...typography.caption,
+    color: '#991B1B',
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  safetyReminderPills: {
+    gap: 4,
+  },
+  safetyReminderDontRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  safetyReminderDont: {
+    ...typography.caption,
+    color: '#7F1D1D',
+    fontSize: 11,
+    flex: 1,
   },
 });

@@ -20,7 +20,9 @@ export type EntityType =
   | 'traceability_record'
   | 'traceability_event'
   | 'handover_confirmation'
-  | 'handover_photo';
+  | 'handover_photo'
+  | 'field_feedback'
+  | 'safety_guide';
 
 export interface SyncMetadata {
   localId: string;

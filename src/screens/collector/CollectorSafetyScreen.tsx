@@ -6,24 +6,31 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { AppHeader } from '../../components/AppHeader';
-import { LanguageCode } from '../../types';
+import { LanguageCode, SafetyGuide, SafetyCategoryKey } from '../../types';
 import { translations } from '../../i18n';
-import { ttsService } from '../../services/audio/ttsService';
+import { ttsService, PlaybackState } from '../../services/audio/ttsService';
+import { safetyRepository } from '../../services/sqlite/repositories/safetyRepository';
+import {
+  DETERMINISTIC_SAFETY_CATEGORIES,
+  getSafetyProfile,
+} from '../../services/safety/safetyRulesEngine';
+import { FieldFeedbackModal } from '../../components/FieldFeedbackModal';
 
 interface CollectorSafetyScreenProps {
   navigation: any;
 }
 
-const AUDIO_LANG_OPTIONS: { code: LanguageCode; label: string; flag: string }[] = [
-  { code: 'mr', label: 'मराठी', flag: '🇮🇳' },
-  { code: 'hi', label: 'हिंदी', flag: '🇮🇳' },
-  { code: 'en', label: 'English', flag: '🌐' },
+const AUDIO_LANG_OPTIONS: { code: LanguageCode; label: string }[] = [
+  { code: 'mr', label: 'मराठी' },
+  { code: 'hi', label: 'हिंदी' },
+  { code: 'en', label: 'English' },
 ];
 
 export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
@@ -31,22 +38,45 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
 }) => {
   const { language: appLang, t } = useLanguage();
   const [selectedAudioLang, setSelectedAudioLang] = useState<LanguageCode>(appLang);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [guides, setGuides] = useState<SafetyGuide[]>([]);
+  const [isLoadingGuides, setIsLoadingGuides] = useState<boolean>(true);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  const [isReadingAll, setIsReadingAll] = useState<boolean>(false);
+  const [playbackState, setPlaybackState] = useState<PlaybackState>('idle');
   const [nowPlayingText, setNowPlayingText] = useState<string>('');
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
+  const [showNotSureModal, setShowNotSureModal] = useState<boolean>(false);
 
   // Pulse animation for active playback badge
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Load guides from SQLite offline cache
   useEffect(() => {
-    // Keep default audio language in sync if user changes app language,
-    // unless they explicitly picked a different audio option
+    let isMounted = true;
+    async function loadData() {
+      setIsLoadingGuides(true);
+      try {
+        const loaded = await safetyRepository.getSafetyGuides(selectedAudioLang);
+        if (isMounted) setGuides(loaded);
+      } catch (err) {
+        console.warn('[CollectorSafetyScreen] Error loading safety guides:', err);
+      } finally {
+        if (isMounted) setIsLoadingGuides(false);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedAudioLang]);
+
+  useEffect(() => {
     setSelectedAudioLang(appLang);
   }, [appLang]);
 
   useEffect(() => {
-    // Pulse animation loop when playing
-    if (activeItemId || isReadingAll) {
+    if (playbackState === 'playing') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -64,14 +94,13 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
     } else {
       pulseAnim.setValue(1);
     }
-  }, [activeItemId, isReadingAll, pulseAnim]);
+  }, [playbackState, pulseAnim]);
 
-  // Stop TTS immediately on screen blur or unmount
+  // Stop TTS on blur / unmount
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('blur', () => {
       stopAllAudio();
     });
-
     return () => {
       stopAllAudio();
       if (unsubscribe) unsubscribe();
@@ -81,141 +110,110 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
   const stopAllAudio = async () => {
     await ttsService.stop();
     setActiveItemId(null);
-    setIsReadingAll(false);
+    setPlaybackState('idle');
     setNowPlayingText('');
   };
 
-  // Get localized texts based on the currently selected audio language
-  const audioDict = translations[selectedAudioLang] || translations[appLang];
+  const handlePause = async () => {
+    await ttsService.pause();
+    setPlaybackState('paused');
+  };
 
-  const safetyItems = [
-    {
-      id: 'wires',
-      icon: 'fire-alert',
-      title: audioDict.safety1Title,
-      desc: audioDict.safety1Desc,
-      appTitle: t('safety1Title'),
-      appDesc: t('safety1Desc'),
-      color: colors.danger,
-      bg: colors.dangerBg,
-      isDanger: true,
-      textToSpeak: `${audioDict.safety1Title}. ${audioDict.safety1Desc}`,
-    },
-    {
-      id: 'acid',
-      icon: 'flask-round-bottom-empty',
-      title: audioDict.safety2Title,
-      desc: audioDict.safety2Desc,
-      appTitle: t('safety2Title'),
-      appDesc: t('safety2Desc'),
-      color: colors.softPeach,
-      bg: colors.softPeachBg,
-      isDanger: true,
-      textToSpeak: `${audioDict.safety2Title}. ${audioDict.safety2Desc}`,
-    },
-    {
-      id: 'battery',
-      icon: 'battery-alert-variant-outline',
-      title: audioDict.safety3Title,
-      desc: audioDict.safety3Desc,
-      appTitle: t('safety3Title'),
-      appDesc: t('safety3Desc'),
-      color: colors.warning,
-      bg: colors.warningBg,
-      isDanger: true,
-      textToSpeak: `${audioDict.safety3Title}. ${audioDict.safety3Desc}`,
-    },
-    {
-      id: 'crt',
-      icon: 'television-classic',
-      title: audioDict.safety4Title,
-      desc: audioDict.safety4Desc,
-      appTitle: t('safety4Title'),
-      appDesc: t('safety4Desc'),
-      color: colors.softPurple,
-      bg: colors.softPurpleBg,
-      isDanger: true,
-      textToSpeak: `${audioDict.safety4Title}. ${audioDict.safety4Desc}`,
-    },
-    {
-      id: 'authorized',
-      icon: 'shield-check-outline',
-      title: audioDict.safety5Title,
-      desc: audioDict.safety5Desc,
-      appTitle: t('safety5Title'),
-      appDesc: t('safety5Desc'),
-      color: colors.success,
-      bg: colors.successBg,
-      isDanger: false,
-      textToSpeak: `${audioDict.safety5Title}. ${audioDict.safety5Desc}`,
-    },
-  ];
+  const handleResume = async () => {
+    await ttsService.resume();
+    setPlaybackState('playing');
+  };
 
-  // Play a single item
-  const handlePlaySingle = async (item: (typeof safetyItems)[0]) => {
-    if (activeItemId === item.id) {
-      // Toggle off if already playing this item
-      await stopAllAudio();
+  // Play individual guideline
+  const handlePlaySingle = async (categoryKey: string, spokenText: string, title: string) => {
+    if (activeItemId === categoryKey && playbackState === 'playing') {
+      await handlePause();
+      return;
+    }
+
+    if (activeItemId === categoryKey && playbackState === 'paused') {
+      await handleResume();
       return;
     }
 
     await stopAllAudio();
-    setActiveItemId(item.id);
-    setIsReadingAll(false);
-    setNowPlayingText(item.title);
 
-    await ttsService.speak(item.textToSpeak, {
+    // Check voice availability
+    const check = await ttsService.checkVoiceAvailability(selectedAudioLang);
+    if (!check.available) {
+      setVoiceNotice(check.fallbackMessage);
+      setTimeout(() => setVoiceNotice(null), 4000);
+    }
+
+    setActiveItemId(categoryKey);
+    setPlaybackState('playing');
+    setNowPlayingText(title);
+
+    await ttsService.speak(spokenText, {
       language: selectedAudioLang,
       onDone: () => {
         setActiveItemId(null);
+        setPlaybackState('idle');
         setNowPlayingText('');
       },
       onStopped: () => {
         setActiveItemId(null);
+        setPlaybackState('idle');
         setNowPlayingText('');
       },
       onError: () => {
         setActiveItemId(null);
+        setPlaybackState('idle');
         setNowPlayingText('');
       },
     });
   };
 
-  // Play all guidelines sequentially
+  // Play all guidelines in sequence
   const handlePlayAll = async () => {
-    if (isReadingAll) {
-      await stopAllAudio();
+    if (playbackState === 'playing') {
+      await handlePause();
+      return;
+    }
+    if (playbackState === 'paused') {
+      await handleResume();
       return;
     }
 
     await stopAllAudio();
-    setIsReadingAll(true);
 
-    const sequence = [
-      {
-        id: 'intro',
-        textToSpeak: `${audioDict.safetyGuidelines}. ${audioDict.safetyListenPrompt}.`,
-      },
-      ...safetyItems.map((item, index) => ({
-        id: item.id,
-        textToSpeak: `${selectedAudioLang === 'en' ? `Rule ${index + 1}` : selectedAudioLang === 'mr' ? `नियम ${index + 1}` : `नियम ${index + 1}`}. ${item.textToSpeak}`,
-      })),
-    ];
+    const check = await ttsService.checkVoiceAvailability(selectedAudioLang);
+    if (!check.available) {
+      setVoiceNotice(check.fallbackMessage);
+      setTimeout(() => setVoiceNotice(null), 4000);
+    }
+
+    setPlaybackState('playing');
+    const filtered = selectedCategory === 'all'
+      ? guides
+      : guides.filter((g) => g.materialCategory === selectedCategory);
+
+    const sequence = filtered.map((g, idx) => {
+      const profile = getSafetyProfile(g.materialCategory, selectedAudioLang);
+      const prefix = selectedAudioLang === 'en' ? `Rule ${idx + 1}` : selectedAudioLang === 'mr' ? `नियम ${idx + 1}` : `नियम ${idx + 1}`;
+      return {
+        id: g.materialCategory,
+        textToSpeak: `${prefix}: ${profile.title}. ${profile.audioGuidance}`,
+      };
+    });
 
     await ttsService.playSequence(
       sequence,
       selectedAudioLang,
       (_index, id) => {
         setActiveItemId(id);
-        const currentItem = safetyItems.find((s) => s.id === id);
-        if (currentItem) {
-          setNowPlayingText(currentItem.title);
-        } else {
-          setNowPlayingText(audioDict.safetyGuidelines);
+        const currentGuide = guides.find((g) => g.materialCategory === id);
+        if (currentGuide) {
+          setNowPlayingText(currentGuide.title);
         }
       },
       () => {
-        setIsReadingAll(false);
+        setPlaybackState('idle');
         setActiveItemId(null);
         setNowPlayingText('');
       }
@@ -224,13 +222,17 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
 
   const handleLanguageChange = async (newLang: LanguageCode) => {
     setSelectedAudioLang(newLang);
-    // If currently playing, stop so the next tap speaks in the selected language
-    if (isReadingAll || activeItemId) {
+    if (playbackState === 'playing' || activeItemId) {
       await stopAllAudio();
     }
   };
 
-  const isAudioActive = isReadingAll || activeItemId !== null;
+  const audioDict = translations[selectedAudioLang] || translations[appLang];
+  const isAudioActive = playbackState === 'playing' || playbackState === 'paused';
+
+  const displayedGuides = selectedCategory === 'all'
+    ? guides
+    : guides.filter((g) => g.materialCategory === selectedCategory);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -252,12 +254,11 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
             PROMINENT TTS AUDIO BARRIER & CONTROLLER
             ========================================= */}
         <View style={[styles.listenBanner, isAudioActive && styles.listenBannerActive, shadows.md]}>
-          {/* Header row */}
           <View style={styles.bannerTopRow}>
             <View style={styles.bannerIconCircle}>
               <Ionicons
                 name={isAudioActive ? 'volume-high' : 'volume-medium-outline'}
-                size={26}
+                size={28}
                 color={colors.primary}
               />
             </View>
@@ -271,7 +272,7 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
             </View>
           </View>
 
-          {/* Audio Language Selection Chips (3 options: Marathi, Hindi, English) */}
+          {/* Audio Language Selection Chips (Marathi, Hindi, English) */}
           <View style={styles.languageSection}>
             <Text style={styles.languageSectionLabel}>
               {audioDict.audioLanguage || 'Audio Language'}:
@@ -288,7 +289,6 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={`Audio Language ${opt.label}`}
                   >
-                    <Text style={styles.chipFlag}>{opt.flag}</Text>
                     <Text style={[styles.langChipText, isSelected && styles.langChipTextSelected]}>
                       {opt.label}
                     </Text>
@@ -306,30 +306,55 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
             </View>
           </View>
 
-          {/* Main Action Buttons: Listen All / Stop */}
+          {/* Voice Availability Fallback Alert */}
+          {voiceNotice && (
+            <View style={styles.fallbackNoticeBox}>
+              <Ionicons name="information-circle" size={18} color={colors.warning} />
+              <Text style={styles.fallbackNoticeText}>{voiceNotice}</Text>
+            </View>
+          )}
+
+          {/* Audio Controls (Play, Pause, Stop) with Large Touch Targets (≥48dp) */}
           <View style={styles.controlsRow}>
-            {!isAudioActive ? (
+            {playbackState !== 'playing' ? (
               <TouchableOpacity
-                style={styles.playAllButton}
+                style={[styles.audioCtrlBtn, styles.playAllButton]}
                 onPress={handlePlayAll}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Listen All Guidelines"
+                accessibilityLabel="Play Audio Guidance"
               >
-                <Ionicons name="play" size={20} color={colors.textLight} />
+                <Ionicons name="play" size={24} color={colors.textLight} />
                 <Text style={styles.playAllButtonText}>
-                  {audioDict.listenAll || 'Listen All Guidelines'}
+                  {playbackState === 'paused'
+                    ? (audioDict.resumeAudio || 'Resume')
+                    : (audioDict.listenAll || 'Listen')}
                 </Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={styles.stopButton}
+                style={[styles.audioCtrlBtn, styles.pauseButton]}
+                onPress={handlePause}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Pause Audio Guidance"
+              >
+                <Ionicons name="pause" size={24} color={colors.textLight} />
+                <Text style={styles.pauseButtonText}>
+                  {audioDict.pauseAudio || 'Pause'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {isAudioActive && (
+              <TouchableOpacity
+                style={[styles.audioCtrlBtn, styles.stopButton]}
                 onPress={stopAllAudio}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Stop Audio"
+                accessibilityLabel="Stop Audio Guidance"
               >
-                <Ionicons name="stop" size={20} color={colors.textLight} />
+                <Ionicons name="stop" size={22} color={colors.textLight} />
                 <Text style={styles.stopButtonText}>
                   {audioDict.stopAudio || 'Stop'}
                 </Text>
@@ -337,7 +362,7 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
             )}
           </View>
 
-          {/* Real-time speech status readout */}
+          {/* Real-time playback status */}
           {isAudioActive && (
             <View style={styles.nowPlayingBox}>
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -351,90 +376,281 @@ export const CollectorSafetyScreen: React.FC<CollectorSafetyScreenProps> = ({
         </View>
 
         {/* =========================================
-            VISUAL SAFETY CARDS LIST WITH INDIVIDUAL TTS
+            "NOT SURE?" UNKNOWN SCRAP BUTTON
             ========================================= */}
-        <View style={styles.cardsList}>
-          {safetyItems.map((item) => {
-            const isThisItemPlaying = activeItemId === item.id;
+        <TouchableOpacity
+          style={[styles.notSureBanner, shadows.sm]}
+          onPress={() => setShowNotSureModal(true)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Not sure about material? Get safe handling guidance"
+        >
+          <View style={styles.notSureLeft}>
+            <View style={styles.notSureIcon}>
+              <Ionicons name="help-circle" size={28} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.notSureTitle}>{t('notSure')}</Text>
+              <Text style={styles.notSureSub}>{t('notSureDesc')}</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color="#D97706" />
+        </TouchableOpacity>
 
+        {/* =========================================
+            CATEGORY HORIZONTAL TABS (10 CATEGORIES)
+            ========================================= */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryTabsScroll}
+        >
+          <TouchableOpacity
+            style={[styles.catTab, selectedCategory === 'all' && styles.catTabActive]}
+            onPress={() => setSelectedCategory('all')}
+          >
+            <Text style={[styles.catTabText, selectedCategory === 'all' && styles.catTabTextActive]}>
+              {selectedAudioLang === 'en' ? 'All (10)' : selectedAudioLang === 'mr' ? 'सर्व (१०)' : 'सभी (10)'}
+            </Text>
+          </TouchableOpacity>
+
+          {DETERMINISTIC_SAFETY_CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat.key;
+            const profile = getSafetyProfile(cat.key, selectedAudioLang);
             return (
-              <View
-                key={item.id}
-                style={[
-                  styles.safetyCard,
-                  { borderColor: item.isDanger ? colors.borderLight : colors.primaryLight },
-                  isThisItemPlaying && styles.safetyCardActivePlaying,
-                  shadows.sm,
-                ]}
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.catTab, isSelected && styles.catTabActive]}
+                onPress={() => setSelectedCategory(cat.key)}
               >
-                <View style={[styles.cardIconBox, { backgroundColor: item.bg }]}>
-                  <MaterialCommunityIcons
-                    name={item.icon as any}
-                    size={36}
-                    color={item.color}
-                  />
-                </View>
+                <MaterialCommunityIcons
+                  name={cat.icon as any}
+                  size={18}
+                  color={isSelected ? colors.textLight : colors.textSecondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.catTabText, isSelected && styles.catTabTextActive]}>
+                  {profile.title.split(' ')[0]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-                <View style={styles.cardDetails}>
-                  <View style={styles.titleRow}>
-                    <Text style={[styles.cardTitle, { color: item.color }]}>
-                      {item.title}
-                    </Text>
-                    {item.isDanger ? (
-                      <Ionicons name="close-circle" size={20} color={colors.danger} />
-                    ) : (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                    )}
-                  </View>
+        {/* =========================================
+            SAFETY GUIDES LIST (PICTORIAL DO / DON'T)
+            ========================================= */}
+        {isLoadingGuides ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>{t('loading')}</Text>
+          </View>
+        ) : (
+          <View style={styles.cardsList}>
+            {displayedGuides.map((guide) => {
+              const profile = getSafetyProfile(guide.materialCategory, selectedAudioLang);
+              const isPlaying = activeItemId === guide.materialCategory && playbackState === 'playing';
+              const isHigh = guide.severity === 'high';
 
-                  <Text style={styles.cardDesc}>{item.desc}</Text>
+              return (
+                <View
+                  key={guide.id}
+                  style={[
+                    styles.guideCard,
+                    isHigh ? styles.cardHigh : styles.cardMed,
+                    isPlaying && styles.cardPlaying,
+                    shadows.sm,
+                  ]}
+                >
+                  {/* Card Header */}
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardHeaderLeft}>
+                      <View style={[styles.guideIconCircle, { backgroundColor: isHigh ? '#FEE2E2' : '#FEF3C7' }]}>
+                        <MaterialCommunityIcons
+                          name={profile.icon as any}
+                          size={28}
+                          color={isHigh ? colors.danger : colors.warning}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.guideTitle}>{profile.title}</Text>
+                        <View style={styles.severityBadgeRow}>
+                          <View
+                            style={[
+                              styles.severityBadge,
+                              { backgroundColor: isHigh ? '#FEE2E2' : '#FEF3C7' },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.severityDot,
+                                { backgroundColor: isHigh ? colors.danger : '#D97706' },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.severityText,
+                                { color: isHigh ? colors.danger : '#B45309' },
+                              ]}
+                            >
+                              {isHigh ? 'HIGH RISK' : 'CAUTION'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
 
-                  {/* Individual Listen Button for this specific card */}
-                  <View style={styles.cardFooter}>
+                    {/* Listen Button for this guide */}
                     <TouchableOpacity
                       style={[
-                        styles.individualListenBtn,
-                        isThisItemPlaying && styles.individualListenBtnPlaying,
+                        styles.guideListenBtn,
+                        isPlaying && styles.guideListenBtnActive,
                       ]}
-                      onPress={() => handlePlaySingle(item)}
+                      onPress={() =>
+                        handlePlaySingle(
+                          guide.materialCategory,
+                          `${profile.title}. ${profile.audioGuidance}`,
+                          profile.title
+                        )
+                      }
                       activeOpacity={0.7}
                       accessibilityRole="button"
-                      accessibilityLabel={`Listen ${item.title}`}
+                      accessibilityLabel={`Listen ${profile.title}`}
                     >
                       <Ionicons
-                        name={isThisItemPlaying ? 'stop-circle' : 'volume-high'}
-                        size={18}
-                        color={isThisItemPlaying ? colors.textLight : colors.primaryDark}
+                        name={isPlaying ? 'pause' : 'volume-high'}
+                        size={20}
+                        color={isPlaying ? colors.textLight : colors.primaryDark}
                       />
                       <Text
                         style={[
-                          styles.individualListenText,
-                          isThisItemPlaying && styles.individualListenTextPlaying,
+                          styles.guideListenText,
+                          isPlaying && styles.guideListenTextActive,
                         ]}
                       >
-                        {isThisItemPlaying
-                          ? (audioDict.stopAudio || 'Stop')
-                          : (audioDict.tapToListen || 'Listen')}
+                        {isPlaying ? (audioDict.pauseAudio || 'Pause') : (audioDict.listen || 'Listen')}
                       </Text>
                     </TouchableOpacity>
-
-                    {isThisItemPlaying && (
-                      <View style={styles.playingIndicatorBadge}>
-                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                          <Ionicons name="mic-outline" size={14} color={colors.primary} />
-                        </Animated.View>
-                        <Text style={styles.playingIndicatorText}>
-                          {audioDict.audioPlaying || 'Speaking...'}
-                        </Text>
-                      </View>
-                    )}
                   </View>
+
+                  {/* Warning Banner */}
+                  <View style={styles.warningBox}>
+                    <Ionicons name="alert-circle" size={16} color={colors.danger} style={{ marginRight: 6 }} />
+                    <Text style={styles.warningText}>{profile.warningBanner}</Text>
+                  </View>
+
+                  {/* PICTORIAL DO's SECTION */}
+                  <View style={styles.dosSection}>
+                    <View style={styles.sectionHeaderRow}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} style={{ marginRight: 4 }} />
+                      <Text style={styles.dosHeading}>
+                        {selectedAudioLang === 'mr' ? 'करा (DO):' : selectedAudioLang === 'hi' ? 'करें (DO):' : 'DO:'}
+                      </Text>
+                    </View>
+                    {profile.doList.map((item, idx) => (
+                      <View key={`do-${idx}`} style={styles.actionRow}>
+                        <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
+                        <Text style={styles.actionText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* PICTORIAL DONT's SECTION */}
+                  <View style={styles.dontsSection}>
+                    <View style={styles.sectionHeaderRow}>
+                      <Ionicons name="close-circle" size={16} color={colors.danger} style={{ marginRight: 4 }} />
+                      <Text style={styles.dontsHeading}>
+                        {selectedAudioLang === 'mr' ? 'करू नका (DON\'T):' : selectedAudioLang === 'hi' ? 'न करें (DON\'T):' : 'DON\'T:'}
+                      </Text>
+                    </View>
+                    {profile.dontList.map((item, idx) => (
+                      <View key={`dont-${idx}`} style={styles.actionRow}>
+                        <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
+                        <Text style={styles.actionText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* EMERGENCY GUIDANCE */}
+                  {profile.emergencyGuidance ? (
+                    <View style={styles.emergencyBox}>
+                      <Ionicons name="medkit-outline" size={16} color="#B91C1C" />
+                      <Text style={styles.emergencyText}>
+                        <Text style={{ fontWeight: '700' }}>Emergency: </Text>
+                        {profile.emergencyGuidance}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* =========================================
+            FIELD FEEDBACK ENTRY BUTTON
+            ========================================= */}
+        <TouchableOpacity
+          style={styles.fieldReportBtn}
+          onPress={() => setShowFeedbackModal(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Report usability issue or feedback"
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.textSecondary} />
+          <Text style={styles.fieldReportText}>{t('giveFeedback')}</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Field Usability Feedback Modal */}
+      <FieldFeedbackModal
+        visible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        currentScreen="CollectorSafetyScreen"
+      />
+
+      {/* "Not Sure?" Guidance Dialog */}
+      {showNotSureModal && (
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.notSureDialog, shadows.lg]}>
+            <View style={styles.dialogTop}>
+              <View style={styles.dialogIconBox}>
+                <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
+              </View>
+              <Text style={styles.dialogTitle}>{t('notSure')}</Text>
+            </View>
+
+            <Text style={styles.dialogBody}>
+              {selectedAudioLang === 'mr'
+                ? '१. वस्तू बंद स्थितीत ठेवा, तिला उघडण्याचा प्रयत्न करू नका.\n२. चांगल्या प्रकाशात फोटो काढा.\n३. स्क्रॅपडील AI ला ओळखू द्या.\n४. खात्री नसल्यास अधिकृत रिसायकलरचा सल्ला घ्या.'
+                : selectedAudioLang === 'hi'
+                ? '1. अज्ञात वस्तु को कभी भी जबरन न खोलें या तोड़ें।\n2. दिन की रोशनी में साफ फोटो लें।\n3. ScrapDeal AI की सहायता लें।\n4. संदेह होने पर केवल अधिकृत रिसाइक्लर को ही सौंपें।'
+                : '1. Do NOT force open, puncture, or dismantle unknown devices.\n2. Take a clear photo in good light.\n3. Let ScrapDeal AI suggest the material category.\n4. Hand over directly to a verified recycler.'}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.dialogBtn}
+              onPress={() => {
+                setShowNotSureModal(false);
+                navigation.navigate('TakePhoto', { categoryId: 'other' });
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="camera" size={20} color={colors.textLight} />
+              <Text style={styles.dialogBtnText}>
+                {selectedAudioLang === 'mr' ? 'फोटो काढा (Take Photo)' : selectedAudioLang === 'hi' ? 'फोटो लें (Take Photo)' : 'Take Photo'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dialogCloseBtn}
+              onPress={() => setShowNotSureModal(false)}
+            >
+              <Text style={styles.dialogCloseText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -451,248 +667,459 @@ const styles = StyleSheet.create({
   },
   listenBanner: {
     backgroundColor: colors.card,
-    borderRadius: borderRadius.xxl,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.primaryLight,
-    marginBottom: spacing.xl,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   listenBannerActive: {
     borderColor: colors.primary,
-    backgroundColor: '#F2FAF5',
+    backgroundColor: '#F0FDF4',
   },
   bannerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   bannerIconCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primaryPale,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.sm,
   },
   listenTextContainer: {
     flex: 1,
   },
   listenTitle: {
     ...typography.h3,
-    color: colors.primaryDark,
-    fontSize: 18,
+    color: colors.text,
   },
   listenPrompt: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
   },
   languageSection: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-    backgroundColor: colors.cardAlt,
-    padding: spacing.sm,
-    borderRadius: borderRadius.lg,
+    marginVertical: spacing.sm,
   },
   languageSectionLabel: {
     ...typography.caption,
-    fontWeight: '700',
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-    marginLeft: spacing.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
   languageChipsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   langChip: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    minHeight: 48, // Touch target
   },
   langChipSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primaryDark,
   },
   chipFlag: {
-    fontSize: 14,
+    marginRight: 4,
+    fontSize: 16,
   },
   langChipText: {
-    ...typography.buttonSmall,
-    color: colors.textSecondary,
-    fontWeight: '600',
+    ...typography.body,
     fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
   },
   langChipTextSelected: {
     color: colors.textLight,
-    fontWeight: '700',
+  },
+  fallbackNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.sm,
+  },
+  fallbackNoticeText: {
+    ...typography.caption,
+    color: '#92400E',
+    fontWeight: '600',
+    flex: 1,
   },
   controlsRow: {
     flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  audioCtrlBtn: {
+    minHeight: 52, // Large touch target
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: 8,
   },
   playAllButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    gap: spacing.sm,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   playAllButtonText: {
-    ...typography.buttonMedium,
+    ...typography.button,
     color: colors.textLight,
-    fontWeight: '800',
-    fontSize: 15,
+  },
+  pauseButton: {
+    flex: 1,
+    backgroundColor: '#D97706',
+  },
+  pauseButtonText: {
+    ...typography.button,
+    color: colors.textLight,
   },
   stopButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.danger,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    gap: spacing.sm,
-    shadowColor: colors.danger,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    minWidth: 100,
   },
   stopButtonText: {
-    ...typography.buttonMedium,
+    ...typography.button,
     color: colors.textLight,
-    fontWeight: '800',
-    fontSize: 15,
   },
   nowPlayingBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    backgroundColor: colors.primaryPale,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   nowPlayingText: {
     ...typography.caption,
+    fontWeight: '600',
     color: colors.primaryDark,
-    fontWeight: '700',
     flex: 1,
   },
-  cardsList: {
-    gap: spacing.lg,
-  },
-  safetyCard: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    borderWidth: 1.5,
+  notSureBanner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  safetyCardActivePlaying: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    backgroundColor: '#FAFCFA',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  cardIconBox: {
-    width: 58,
-    height: 58,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
     borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    minHeight: 64, // Large target
+  },
+  notSureLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  notSureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FDE68A',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
-  cardDetails: {
-    flex: 1,
+  notSureTitle: {
+    ...typography.h3,
+    fontSize: 15,
+    color: '#92400E',
   },
-  titleRow: {
+  notSureSub: {
+    ...typography.caption,
+    color: '#78350F',
+    marginTop: 2,
+  },
+  categoryTabsScroll: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  catTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    ...typography.h4,
-    fontWeight: '800',
-    flex: 1,
-  },
-  cardDesc: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: spacing.sm,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-  },
-  individualListenBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryPale,
+    paddingVertical: 10,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
     borderRadius: borderRadius.full,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
-    gap: 6,
+    borderColor: colors.borderLight,
+    minHeight: 48,
   },
-  individualListenBtnPlaying: {
-    backgroundColor: colors.danger,
-    borderColor: colors.danger,
+  catTabActive: {
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
-  individualListenText: {
-    ...typography.buttonSmall,
-    color: colors.primaryDark,
-    fontWeight: '700',
-    fontSize: 12,
+  catTabText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
-  individualListenTextPlaying: {
+  catTabTextActive: {
     color: colors.textLight,
   },
-  playingIndicatorBadge: {
+  loadingBox: {
+    paddingVertical: spacing.huge,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  cardsList: {
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  guideCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  cardHigh: {
+    borderColor: '#FCA5A5',
+  },
+  cardMed: {
+    borderColor: '#FCD34D',
+  },
+  cardPlaying: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  guideIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideTitle: {
+    ...typography.h3,
+    fontSize: 15,
+    color: colors.text,
+  },
+  severityBadgeRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  severityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: borderRadius.xs,
+  },
+  severityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  severityText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  guideListenBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryPale,
+    paddingVertical: 8,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
     borderRadius: borderRadius.md,
+    backgroundColor: '#DCFCE7',
+    minHeight: 48,
   },
-  playingIndicatorText: {
+  guideListenBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  guideListenText: {
     ...typography.caption,
-    color: colors.primary,
     fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  guideListenTextActive: {
+    color: colors.textLight,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.danger,
+    padding: spacing.sm,
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing.sm,
+  },
+  warningText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: '#991B1B',
+    flex: 1,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  dosSection: {
+    backgroundColor: '#F0FDF4',
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.xs,
+    gap: 4,
+  },
+  dosHeading: {
+    ...typography.caption,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  dontsSection: {
+    backgroundColor: '#FEF2F2',
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.xs,
+    gap: 4,
+  },
+  dontsHeading: {
+    ...typography.caption,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  actionText: {
+    ...typography.caption,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 18,
+  },
+  emergencyBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F2',
+    padding: spacing.xs,
+    borderRadius: borderRadius.xs,
+    marginTop: spacing.xs,
+  },
+  emergencyText: {
     fontSize: 11,
+    color: '#9F1239',
+    flex: 1,
+  },
+  fieldReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 48,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  fieldReportText: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  notSureDialog: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 380,
+  },
+  dialogTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  dialogIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogTitle: {
+    ...typography.h3,
+    color: colors.text,
+  },
+  dialogBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  dialogBtn: {
+    minHeight: 52,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  dialogBtnText: {
+    ...typography.button,
+    color: colors.textLight,
+  },
+  dialogCloseBtn: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCloseText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

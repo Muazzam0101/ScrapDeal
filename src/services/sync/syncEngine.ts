@@ -11,6 +11,8 @@ import { paymentRepository } from '../sqlite/repositories/paymentRepository';
 import { notificationRepository } from '../sqlite/repositories/notificationRepository';
 import { deviceTokenRepository } from '../sqlite/repositories/deviceTokenRepository';
 import { traceabilityRepository } from '../sqlite/repositories/traceabilityRepository';
+import { fieldFeedbackRepository } from '../sqlite/repositories/fieldFeedbackRepository';
+import { safetyRepository } from '../sqlite/repositories/safetyRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
@@ -353,6 +355,19 @@ class SyncEngine {
         break;
       }
 
+      case 'field_feedback': {
+        const fb = payload;
+        await firestoreService.saveFieldFeedbackDoc(fb);
+        await fieldFeedbackRepository.updateSyncStatus(fb.id, 'synced');
+        break;
+      }
+
+      case 'safety_guide': {
+        const guide = payload;
+        await safetyRepository.saveSafetyGuide(guide);
+        break;
+      }
+
       default:
         console.warn(`[SyncEngine] Unrecognized entityType: ${op.entityType}`);
     }
@@ -406,6 +421,14 @@ class SyncEngine {
       const remoteNotifications = await firestoreService.getNotificationsForUser(currentUser.id);
       if (remoteNotifications && remoteNotifications.length > 0) {
         await notificationRepository.saveNotificationsFromRemote(remoteNotifications);
+      }
+
+      // Pull updated safety guides from Cloud Firestore into SQLite cache if available
+      const remoteSafetyGuides = await firestoreService.getSafetyGuidesDocs();
+      if (remoteSafetyGuides && remoteSafetyGuides.length > 0) {
+        for (const g of remoteSafetyGuides) {
+          await safetyRepository.saveSafetyGuide(g);
+        }
       }
     } catch (e: any) {
       if (e?.code === 'permission-denied' || e?.message?.includes('Missing or insufficient permissions')) {

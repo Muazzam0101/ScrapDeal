@@ -9,7 +9,8 @@ export type NotificationType =
   | 'handover_confirmed'
   | 'payment_pending'
   | 'payment_completed'
-  | 'payment_failed';
+  | 'payment_failed'
+  | 'safety_warning';
 
 export type NotificationEntityType =
   | 'lot'

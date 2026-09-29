@@ -249,5 +249,19 @@ service cloud.firestore {
       allow read: if true; // Publicly verifiable without private identity leakage
       allow write: if isDevMode() || isAuthenticated();
     }
+
+    // Safety Guides (Phase 8 - Broadly readable for offline/field safety guidance)
+    match /safetyGuides/{guideId} {
+      allow read: if true; // Safety guidance is publicly accessible to all workers
+      allow write: if isDevMode() || isAuthenticated();
+    }
+
+    // Field Feedback (Phase 8 - Field usability research from real collectors and recyclers)
+    match /fieldFeedback/{feedbackId} {
+      allow create: if true; // Field workers can submit feedback even if anonymous/offline
+      allow read: if isDevMode() || isAuthenticated();
+      allow update: if false; // Feedback records are append-only
+      allow delete: if false;
+    }
   }
 }

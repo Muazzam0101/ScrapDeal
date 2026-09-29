@@ -199,16 +199,25 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           </Text>
 
           <View style={styles.cardDetailsList}>
-            <Text style={styles.cardDetailText}>
-              👤 {t('recycler') || 'रीसाइक्लर'}: {recyclerName || deal?.recyclerId || t('registeredRecycler')}
-            </Text>
-            <Text style={styles.cardDetailText}>
-              📦 {t('materialCategory') || 'सामग्री'}: {materialName} • {finalWeight} {t('kg') || 'kg'}
-            </Text>
-            {agreedRate > 0 && (
+            <View style={styles.cardDetailRow}>
+              <Ionicons name="person-outline" size={14} color="#00875A" />
               <Text style={styles.cardDetailText}>
-                💰 {t('agreedRate') || 'दर'}: ₹{agreedRate} / {t('kg') || 'kg'}
+                {t('recycler') || 'रीसाइक्लर'}: {recyclerName || deal?.recyclerId || t('registeredRecycler')}
               </Text>
+            </View>
+            <View style={styles.cardDetailRow}>
+              <Ionicons name="cube-outline" size={14} color="#00875A" />
+              <Text style={styles.cardDetailText}>
+                {t('materialCategory') || 'सामग्री'}: {materialName} • {finalWeight} {t('kg') || 'kg'}
+              </Text>
+            </View>
+            {agreedRate > 0 && (
+              <View style={styles.cardDetailRow}>
+                <Ionicons name="pricetag-outline" size={14} color="#00875A" />
+                <Text style={styles.cardDetailText}>
+                  {t('agreedRate') || 'दर'}: ₹{agreedRate} / {t('kg') || 'kg'}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -257,7 +266,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               title={t('payCash') || 'नकद (Cash)'}
               subtitle={
                 recyclerHasPaidCash
-                  ? t('recyclerPaidCashNotice') || '✓ रीसाइक्लर ने नकद दे दिया है'
+                  ? t('recyclerPaidCashNotice') || 'रीसाइक्लर ने नकद दे दिया है'
                   : t('payCashSubtitle') || 'हैंडओवर के समय नकद लेनदेन'
               }
               badgeText={recyclerHasPaidCash ? t('cashPaidConfirmedBadge') || 'Paid by Recycler' : t('cash') || 'CASH'}
@@ -316,7 +325,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       {!isCompleted && paymentMethod === 'cash' && (
         <View style={styles.bottomBar}>
           <PrimaryButton
-            title={submitting ? t('confirming') || 'पुष्टि हो रही है...' : t('cashReceivedCTA') || '✓ नकद प्राप्त हुआ (Cash Received)'}
+            title={submitting ? t('confirming') || 'पुष्टि हो रही है...' : t('cashReceivedCTA') || 'नकद प्राप्त हुआ (Cash Received)'}
             icon="checkmark-circle"
             onPress={handleConfirmCashReceived}
             disabled={submitting}
@@ -390,8 +399,13 @@ const styles = StyleSheet.create({
   },
   cardDetailsList: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     marginTop: spacing.xs,
+  },
+  cardDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   cardDetailText: {
     ...typography.bodySmall,

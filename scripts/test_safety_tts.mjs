@@ -107,9 +107,9 @@ console.log('[PASS] TEST 4: Speech sequence generated accurately with prefix and
 // TEST 5: Verify Audio Options count and structure
 console.log('[RUN] TEST 5: Verify exactly 3 audio language options are present');
 const AUDIO_OPTIONS = [
-  { code: 'mr', label: 'मराठी', flag: '🇮🇳' },
-  { code: 'hi', label: 'हिंदी', flag: '🇮🇳' },
-  { code: 'en', label: 'English', flag: '🌐' },
+  { code: 'mr', label: 'मराठी' },
+  { code: 'hi', label: 'हिंदी' },
+  { code: 'en', label: 'English' },
 ];
 assert.strictEqual(AUDIO_OPTIONS.length, 3, 'Must have exactly 3 options');
 assert.deepStrictEqual(AUDIO_OPTIONS.map(o => o.code), ['mr', 'hi', 'en']);

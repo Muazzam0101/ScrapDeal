@@ -42,8 +42,9 @@
     "test:phase5": "node scripts/test_phase5.mjs",
     "test:phase6": "node scripts/test_phase6.mjs",
     "test:phase7": "node scripts/test_phase7.mjs",
+    "test:phase8": "node scripts/test_phase8.mjs",
     "test:safety": "node scripts/test_safety_tts.mjs",
-    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs && node scripts/test_phase4.mjs && node scripts/test_phase5.mjs && node scripts/test_phase6.mjs && node scripts/test_phase7.mjs && node scripts/test_safety_tts.mjs"
+    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs && node scripts/test_phase4.mjs && node scripts/test_phase5.mjs && node scripts/test_phase6.mjs && node scripts/test_phase7.mjs && node scripts/test_phase8.mjs && node scripts/test_safety_tts.mjs"
   },
   "private": true
 }

@@ -575,5 +575,35 @@ export const firestoreService = {
     });
     return pId;
   },
+
+  /**
+   * Saves Field Usability Feedback to Firestore (Phase 8).
+   */
+  async saveFieldFeedbackDoc(feedback: any): Promise<string> {
+    if (!isConfigured) return feedback.id;
+    const fbRef = doc(db, 'fieldFeedback', feedback.id);
+    await setDoc(fbRef, {
+      ...feedback,
+      syncStatus: 'synced',
+      syncedAt: new Date().toISOString(),
+    });
+    return feedback.id;
+  },
+
+  /**
+   * Fetches remote safety guides from Firestore if available (Phase 8).
+   */
+  async getSafetyGuidesDocs(): Promise<any[]> {
+    if (!isConfigured) return [];
+    try {
+      const snap = await getDocs(collection(db, 'safetyGuides'));
+      return snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+    } catch {
+      return [];
+    }
+  },
 };
 

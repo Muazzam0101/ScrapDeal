@@ -189,6 +189,12 @@ class NotificationService {
           params: { dealId: notification.entityId },
         };
 
+      case 'safety_warning':
+        return {
+          screen: 'CollectorSafety',
+          params: {},
+        };
+
       default:
         return {
           screen: 'DealDetails',

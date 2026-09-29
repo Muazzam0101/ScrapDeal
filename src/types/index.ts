@@ -12,3 +12,4 @@ export * from './ai';
 export * from './payment';
 export * from './notification';
 export * from './traceability';
+export * from './safety';

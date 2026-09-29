@@ -98,6 +98,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
         return { name: 'time-outline', color: '#2563EB' };
       case 'payment_failed':
         return { name: 'alert-circle-outline', color: colors.danger };
+      case 'safety_warning':
+        return { name: 'shield-alert-outline', color: colors.danger };
       default:
         return { name: 'notifications-outline', color: colors.primary };
     }

@@ -378,6 +378,36 @@ export const CREATE_TABLES_SQL = `
     createdAt TEXT NOT NULL
   );
 
+  -- Safety Guides table (Phase 8 - Offline deterministic safety guidance)
+  CREATE TABLE IF NOT EXISTS safety_guides (
+    id TEXT PRIMARY KEY,
+    materialCategory TEXT NOT NULL,
+    title TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    doItems TEXT NOT NULL, -- JSON array
+    dontItems TEXT NOT NULL, -- JSON array
+    imageReferences TEXT, -- JSON array
+    audioReferences TEXT, -- JSON array
+    language TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    updatedAt TEXT NOT NULL,
+    syncStatus TEXT DEFAULT 'synced',
+    lastSyncedAt TEXT
+  );
+
+  -- Field Feedback table (Phase 8 - Usability field research)
+  CREATE TABLE IF NOT EXISTS field_feedback (
+    id TEXT PRIMARY KEY,
+    userType TEXT NOT NULL,
+    screen TEXT NOT NULL,
+    issueType TEXT NOT NULL,
+    comments TEXT,
+    language TEXT NOT NULL,
+    syncStatus TEXT DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    lastSyncedAt TEXT
+  );
+
   -- Indices for faster lookups
   CREATE INDEX IF NOT EXISTS idx_lots_collector ON material_lots(collectorId);
   CREATE INDEX IF NOT EXISTS idx_lots_status ON material_lots(status);
@@ -412,4 +442,7 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_events_type ON traceability_events(eventType);
   CREATE INDEX IF NOT EXISTS idx_ho_conf_handover ON handover_confirmations(handoverId);
   CREATE INDEX IF NOT EXISTS idx_ho_photos_handover ON handover_photos(handoverId);
+  CREATE INDEX IF NOT EXISTS idx_safety_guides_cat ON safety_guides(materialCategory);
+  CREATE INDEX IF NOT EXISTS idx_safety_guides_lang ON safety_guides(language);
+  CREATE INDEX IF NOT EXISTS idx_field_feedback_sync ON field_feedback(syncStatus);
 `;

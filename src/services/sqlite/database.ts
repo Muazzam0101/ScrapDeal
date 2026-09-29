@@ -47,6 +47,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
       await runPhase5Migrations(db);
       await runPhase6Migrations(db);
       await runPhase7Migrations(db);
+      await runPhase8Migrations(db);
 
       dbInstance = db;
       return db;
@@ -404,6 +405,49 @@ async function runPhase7Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
 }
 
 /**
+ * Phase 8 Schema Migration: Safety Guides and Field Feedback.
+ */
+async function runPhase8Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
+  try {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS safety_guides (
+        id TEXT PRIMARY KEY,
+        materialCategory TEXT NOT NULL,
+        title TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        doItems TEXT NOT NULL,
+        dontItems TEXT NOT NULL,
+        imageReferences TEXT,
+        audioReferences TEXT,
+        language TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        updatedAt TEXT NOT NULL,
+        syncStatus TEXT DEFAULT 'synced',
+        lastSyncedAt TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS field_feedback (
+        id TEXT PRIMARY KEY,
+        userType TEXT NOT NULL,
+        screen TEXT NOT NULL,
+        issueType TEXT NOT NULL,
+        comments TEXT,
+        language TEXT NOT NULL,
+        syncStatus TEXT DEFAULT 'pending',
+        createdAt TEXT NOT NULL,
+        lastSyncedAt TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_safety_guides_cat ON safety_guides(materialCategory);
+      CREATE INDEX IF NOT EXISTS idx_safety_guides_lang ON safety_guides(language);
+      CREATE INDEX IF NOT EXISTS idx_field_feedback_sync ON field_feedback(syncStatus);
+    `);
+  } catch (e) {
+    console.warn('[SQLite] Phase 8 migration notice:', e);
+  }
+}
+
+/**
  * Synchronous accessor if already open.
  */
 export function getDatabaseSync(): SQLite.SQLiteDatabase {
@@ -450,5 +494,7 @@ export async function clearAllLocalData(): Promise<void> {
     DELETE FROM traceability_events;
     DELETE FROM handover_confirmations;
     DELETE FROM handover_photos;
+    DELETE FROM safety_guides;
+    DELETE FROM field_feedback;
   `);
 }
