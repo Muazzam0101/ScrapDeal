@@ -65,7 +65,7 @@ export const MaterialCategoryScreen: React.FC<MaterialCategoryScreenProps> = ({
 
   const handleContinue = () => {
     if (categoryId) {
-      navigation.navigate('WeightInput', { categoryId });
+      navigation.navigate('TakePhoto', { categoryId });
     }
   };
 

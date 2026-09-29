@@ -220,7 +220,16 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
 
           <TouchableOpacity
             style={styles.doneBtn}
-            onPress={() => navigation.navigate('Home')}
+            onPress={() => {
+              try {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'CollectorRoot' }],
+                });
+              } catch {
+                navigation.navigate('CollectorRoot');
+              }
+            }}
             activeOpacity={0.8}
           >
             <Ionicons name="checkmark-done" size={20} color={colors.textLight} />

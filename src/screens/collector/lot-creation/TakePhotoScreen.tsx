@@ -9,22 +9,41 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../theme';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCreateLot } from '../../../context/CreateLotContext';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
-import { materialRecognitionService, RECOGNIZABLE_CATEGORIES } from '../../../services/ai/materialRecognitionService';
+import {
+  materialRecognitionService,
+  RECOGNIZABLE_CATEGORIES,
+  getScrapComponentBreakdown,
+} from '../../../services/ai/materialRecognitionService';
 import { MaterialRecognitionResult, MaterialCategoryId } from '../../../types';
 import { getCategoryDisplayName } from '../../../constants/materialCategories';
 
 interface TakePhotoScreenProps {
   navigation: any;
+  route?: any;
 }
 
-export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) => {
+const APPLIANCE_ITEMS: Array<{ id: MaterialCategoryId; label: string; icon: string }> = [
+  { id: 'tv_crt', label: 'TV (CRT)', icon: 'tv-outline' },
+  { id: 'lcd_panel', label: 'LCD / Monitor', icon: 'desktop-outline' },
+  { id: 'motor', label: 'Fan / Motor', icon: 'disc-outline' },
+  { id: 'wires', label: 'Wires & Cables', icon: 'git-commit-outline' },
+  { id: 'battery', label: 'Battery', icon: 'battery-charging-outline' },
+  { id: 'pcb', label: 'Circuit Board (PCB)', icon: 'hardware-chip-outline' },
+  { id: 'iron_steel', label: 'Iron / Steel', icon: 'construct-outline' },
+  { id: 'copper', label: 'Pure Copper', icon: 'flash-outline' },
+  { id: 'aluminium', label: 'Aluminium', icon: 'cube-outline' },
+  { id: 'mixed_plastic', label: 'Plastic', icon: 'trash-outline' },
+  { id: 'e_waste', label: 'AC / Fridge / Other', icon: 'snow-outline' },
+];
+
+export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation, route }) => {
   const { t } = useLanguage();
   const {
     photoCaptured,
@@ -36,28 +55,41 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
     setCategoryId,
     selectedCategories,
     setSelectedCategories,
-    toggleCategory,
-    weightKg,
     setAiPredictionData,
   } = useCreateLot();
+
+  const routeCategory = route?.params?.categoryId as MaterialCategoryId | undefined;
+  const initialCategory: MaterialCategoryId = routeCategory || categoryId || 'tv_crt';
+  const [selectedAppliance, setSelectedAppliance] = useState<MaterialCategoryId>(initialCategory);
 
   const [flashOn, setFlashOn] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState<(MaterialRecognitionResult & { localPredictionId?: string }) | null>(null);
-  const [selectedMaterials, setSelectedMaterials] = useState<MaterialCategoryId[]>(
-    selectedCategories && selectedCategories.length > 0
-      ? selectedCategories
-      : categoryId
-      ? [categoryId]
-      : ['iron_steel']
-  );
+
+  // Compute constituent breakdown for the selected appliance
+  const currentBreakdown = getScrapComponentBreakdown(selectedAppliance, selectedAppliance);
+
+  const [selectedMaterials, setSelectedMaterials] = useState<MaterialCategoryId[]>(() => {
+    if (selectedCategories && selectedCategories.length > 0) return selectedCategories;
+    const initialMats = currentBreakdown.possibleScrapMaterials.map((m) => m.categoryId);
+    return initialMats.length > 0 ? Array.from(new Set(initialMats)) : [initialCategory];
+  });
 
   const activePhotoUri = photoUris.length > 0 ? photoUris[photoUris.length - 1] : null;
 
-  const analyzePhoto = async (uri: string, options?: { base64?: string; fileName?: string }) => {
+  const analyzePhoto = async (
+    uri: string,
+    options?: { base64?: string; fileName?: string },
+    overrideCategory?: MaterialCategoryId
+  ) => {
     setIsAnalyzing(true);
+    const catToUse = overrideCategory || selectedAppliance;
     try {
-      const result = await materialRecognitionService.classifyScrapPhoto(uri, options);
+      const result = await materialRecognitionService.classifyScrapPhoto(uri, {
+        ...options,
+        selectedCategory: catToUse,
+        categoryId: catToUse,
+      });
       setAiResult(result);
       if (result.isAvailable) {
         // Auto-select detected constituent materials from the object
@@ -66,28 +98,41 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
             ? (Array.from(new Set(result.possibleScrapMaterials.map((m) => m.categoryId))) as MaterialCategoryId[])
             : result.predictedCategory
             ? [result.predictedCategory]
-            : ['iron_steel'];
+            : [catToUse];
 
         setSelectedMaterials(detectedMats);
         setSelectedCategories(detectedMats);
-        const primary = result.predictedCategory || detectedMats[0];
+        const primary = result.predictedCategory || detectedMats[0] || catToUse;
         setCategoryId(primary);
 
         setAiPredictionData({
           predictionId: result.localPredictionId,
           predictedCategory: primary,
           confidence: result.confidence,
-          userConfirmed: !result.requiresManualConfirmation,
+          userConfirmed: true,
         });
       }
     } catch (e) {
       console.warn('[TakePhotoScreen] AI analysis warning:', e);
-      setAiResult({
-        isAvailable: false,
-        errorMessage: 'AI estimate unavailable: Analysis could not complete.',
-      });
+      const fallback = getScrapComponentBreakdown(catToUse, catToUse);
+      const detectedMats = Array.from(new Set(fallback.possibleScrapMaterials.map((m) => m.categoryId))) as MaterialCategoryId[];
+      setSelectedMaterials(detectedMats);
+      setSelectedCategories(detectedMats);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleSwitchAppliance = (newCat: MaterialCategoryId) => {
+    setSelectedAppliance(newCat);
+    const breakdown = getScrapComponentBreakdown(newCat, newCat);
+    const detectedMats = Array.from(new Set(breakdown.possibleScrapMaterials.map((m) => m.categoryId))) as MaterialCategoryId[];
+    const nextMats = detectedMats.length > 0 ? detectedMats : [newCat];
+    setSelectedMaterials(nextMats);
+    setSelectedCategories(nextMats);
+    setCategoryId(nextMats[0] || newCat);
+    if (activePhotoUri) {
+      analyzePhoto(activePhotoUri, undefined, newCat);
     }
   };
 
@@ -152,36 +197,32 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
         }
       }
     } catch (err) {
-      console.warn('[TakePhotoScreen] Gallery launch error, using fallback:', err);
+      console.warn('[TakePhotoScreen] Gallery pick error, using fallback:', err);
       const fallbackUri = `file:///scrapdeal_offline_photo_${Date.now()}.jpg`;
       addPhotoUri(fallbackUri);
       await analyzePhoto(fallbackUri);
     }
   };
 
-  const handleToggleMaterial = (catId: MaterialCategoryId) => {
+  const handleToggleMaterial = (mat: MaterialCategoryId) => {
     setSelectedMaterials((prev) => {
-      const exists = prev.includes(catId);
-      const next = exists ? prev.filter((c) => c !== catId) : [...prev, catId];
+      const exists = prev.includes(mat);
+      const next = exists ? prev.filter((m) => m !== mat) : [...prev, mat];
       setSelectedCategories(next);
       if (next.length > 0) {
         setCategoryId(next[0]);
-      } else {
-        setCategoryId(null);
       }
       return next;
     });
   };
 
   const handleSelectAllDetected = () => {
-    if (aiResult?.possibleScrapMaterials && aiResult.possibleScrapMaterials.length > 0) {
-      const allDetected = Array.from(
-        new Set(aiResult.possibleScrapMaterials.map((m) => m.categoryId))
-      ) as MaterialCategoryId[];
-      setSelectedMaterials(allDetected);
-      setSelectedCategories(allDetected);
-      if (allDetected.length > 0) setCategoryId(allDetected[0]);
-    }
+    const allMats = Array.from(
+      new Set(currentBreakdown.possibleScrapMaterials.map((m) => m.categoryId))
+    ) as MaterialCategoryId[];
+    setSelectedMaterials(allMats);
+    setSelectedCategories(allMats);
+    if (allMats.length > 0) setCategoryId(allMats[0]);
   };
 
   const handleClearSelection = () => {
@@ -194,14 +235,11 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
     setPhotoUris([]);
     setPhotoCaptured(false);
     setAiResult(null);
-    setSelectedMaterials(['iron_steel']);
-    setSelectedCategories(['iron_steel']);
-    setAiPredictionData({
-      predictionId: null,
-      predictedCategory: null,
-      confidence: null,
-      userConfirmed: true,
-    });
+    const initialMats = currentBreakdown.possibleScrapMaterials.map((m) => m.categoryId);
+    const mats = initialMats.length > 0 ? Array.from(new Set(initialMats)) : [selectedAppliance];
+    setSelectedMaterials(mats);
+    setSelectedCategories(mats);
+    setCategoryId(mats[0]);
   };
 
   const handleContinue = () => {
@@ -210,7 +248,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
       addPhotoUri(fallbackUri);
     }
     const finalMats: MaterialCategoryId[] =
-      selectedMaterials.length > 0 ? selectedMaterials : ['iron_steel'];
+      selectedMaterials.length > 0 ? selectedMaterials : [selectedAppliance || 'iron_steel'];
     setSelectedCategories(finalMats);
     setCategoryId(finalMats[0]);
     navigation.navigate('WeightInput', { categoryId: finalMats[0] });
@@ -239,73 +277,76 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
         }
       />
 
-      {!activePhotoUri ? (
-        // STATE 1: CAMERA VIEWFINDER (Ready to capture)
+      {photoUris.length === 0 ? (
+        /* Camera Capture Viewfinder Screen */
         <View style={styles.captureContainer}>
           <View style={styles.viewfinderContainer}>
             <View style={styles.viewfinder}>
-              {/* Viewfinder Corner Markers */}
               <View style={[styles.corner, styles.topLeft]} />
               <View style={[styles.corner, styles.topRight]} />
               <View style={[styles.corner, styles.bottomLeft]} />
               <View style={[styles.corner, styles.bottomRight]} />
 
-              {/* Center Reticle */}
               <View style={styles.reticle}>
-                <MaterialCommunityIcons
-                  name="camera-metering-center"
-                  size={72}
-                  color="rgba(255, 255, 255, 0.4)"
-                />
+                <Ionicons name="camera-outline" size={54} color={colors.textLight} />
               </View>
-            </View>
 
-            <View style={styles.guidanceBox}>
-              <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
-              <Text style={styles.guidanceText}>{t('takePhotoGuidance')}</Text>
+              <View style={styles.guidanceBox}>
+                <Ionicons name="scan-outline" size={18} color={colors.primaryDark} />
+                <Text style={styles.guidanceText}>{t('takePhotoGuidance')}</Text>
+              </View>
             </View>
           </View>
 
-          {/* Shutter / Bottom Controls */}
+          {/* Shutter / Picker Controls */}
           <View style={styles.controlsContainer}>
             <View style={styles.shutterRow}>
-              {/* Gallery */}
               <TouchableOpacity
                 style={styles.galleryButton}
                 onPress={handlePickFromGallery}
                 activeOpacity={0.7}
               >
-                <Ionicons name="images-outline" size={26} color={colors.text} />
+                <Ionicons name="images-outline" size={32} color={colors.text} />
                 <Text style={styles.galleryText}>{t('chooseGallery')}</Text>
               </TouchableOpacity>
 
-              {/* Shutter Button */}
               <TouchableOpacity
-                style={[styles.shutterOuter, shadows.lg]}
+                style={styles.shutterOuter}
                 onPress={handleCameraSnap}
                 activeOpacity={0.8}
-                accessibilityLabel="Capture Photo"
+                accessibilityRole="button"
+                accessibilityLabel="Capture Scrap Photo"
               >
                 <View style={styles.shutterInner} />
               </TouchableOpacity>
 
-              {/* Spacer for symmetrical alignment */}
-              <View style={{ minWidth: 72 }} />
+              <TouchableOpacity
+                style={styles.galleryButton}
+                onPress={() => {
+                  const fallbackUri = `file:///scrapdeal_mock_lot_${Date.now()}.jpg`;
+                  addPhotoUri(fallbackUri);
+                  analyzePhoto(fallbackUri);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="color-wand-outline" size={28} color={colors.textSecondary} />
+                <Text style={styles.galleryText}>Quick Demo</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       ) : (
-        // STATE 2: PHOTO CAPTURED & MATERIAL CONFIRMATION (Scrollable & fully responsive)
-        <View style={{ flex: 1 }}>
+        /* Post Capture: Object Scrap Breakdown & Multi-Material Selection */
+        <View style={styles.mainContainer}>
           <ScrollView
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Captured Photo Preview Card */}
+            {/* Captured Photo Card with Retake Header */}
             <View style={styles.previewCard}>
-              <Image source={{ uri: activePhotoUri }} style={styles.previewImage} resizeMode="cover" />
+              <Image source={{ uri: activePhotoUri || '' }} style={styles.previewImage} resizeMode="cover" />
               <View style={styles.previewOverlay}>
                 <View style={styles.capturedBadge}>
                   <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
@@ -331,110 +372,114 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
               </View>
             )}
 
-            {/* AI Object Identification & Multi-Material Breakdown */}
-            {!isAnalyzing && aiResult?.isAvailable && (
-              <View style={styles.aiCard}>
-                <View style={styles.aiHeaderRow}>
-                  <View style={styles.aiTag}>
-                    <Ionicons name="sparkles" size={14} color={colors.primaryDark} />
-                    <Text style={styles.aiTagText}>Object Breakdown</Text>
-                  </View>
-                  <Text style={styles.confidenceText}>
-                    AI CONFIDENCE: {Math.round((aiResult.confidence || 0) * 100)}%
-                  </Text>
+            {/* Selected Scrap Item Header & Quick Switcher */}
+            <View style={styles.itemHeaderCard}>
+              <View style={styles.itemHeaderRow}>
+                <View style={styles.itemBadge}>
+                  <Ionicons name="cube-outline" size={16} color={colors.primaryDark} />
+                  <Text style={styles.itemBadgeText}>Scrap Item</Text>
                 </View>
+                <Text style={styles.itemTitle}>{currentBreakdown.detectedObject}</Text>
+              </View>
 
-                <Text style={styles.objectTitle}>
-                  Identified Item:{' '}
-                  <Text style={styles.objectHighlight}>
-                    {aiResult.detectedObject ||
-                      (aiResult.predictedCategory
-                        ? getCategoryDisplayName(aiResult.predictedCategory)
-                        : 'Recyclable Item')}
-                  </Text>
-                </Text>
+              <Text style={styles.itemSwitcherPrompt}>
+                Tap below if this photo is a different scrap item:
+              </Text>
 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.appliancePillsRow}
+              >
+                {APPLIANCE_ITEMS.map((item) => {
+                  const isCur = selectedAppliance === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.appliancePill, isCur && styles.appliancePillActive]}
+                      onPress={() => handleSwitchAppliance(item.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={15}
+                        color={isCur ? colors.card : colors.textSecondary}
+                      />
+                      <Text style={[styles.appliancePillText, isCur && styles.appliancePillTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Object Breakdown & Multi-Material Checklist */}
+            <View style={styles.aiCard}>
+              <View style={styles.breakdownHeader}>
+                <Ionicons name="sparkles" size={18} color={colors.primary} />
                 <Text style={styles.objectSubtitle}>
                   This object contains multiple scrap materials. Multi-select what is included in your lot:
                 </Text>
-
-                {/* Multi-Select Components Breakdown List */}
-                {aiResult.possibleScrapMaterials && aiResult.possibleScrapMaterials.length > 0 && (
-                  <View style={styles.componentsList}>
-                    {aiResult.possibleScrapMaterials.map((comp) => {
-                      const isChecked = selectedMaterials.includes(comp.categoryId);
-                      return (
-                        <TouchableOpacity
-                          key={comp.categoryId + comp.componentName}
-                          style={[styles.componentRow, isChecked && styles.componentRowActive]}
-                          onPress={() => handleToggleMaterial(comp.categoryId)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={isChecked ? 'checkbox' : 'square-outline'}
-                            size={22}
-                            color={isChecked ? colors.primary : colors.textSecondary}
-                          />
-                          <View style={styles.componentInfo}>
-                            <View style={styles.componentNameRow}>
-                              <Text
-                                style={[
-                                  styles.componentMaterialName,
-                                  isChecked && styles.componentMaterialNameActive,
-                                ]}
-                              >
-                                {getCategoryDisplayName(comp.categoryId)}
-                              </Text>
-                              <Text style={styles.componentPartName}>• {comp.componentName}</Text>
-                            </View>
-                            {comp.description && (
-                              <Text style={styles.componentDesc}>{comp.description}</Text>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-
-                <View style={styles.multiActionRow}>
-                  <TouchableOpacity
-                    style={styles.miniActionButton}
-                    onPress={handleSelectAllDetected}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="checkmark-done" size={14} color={colors.primary} />
-                    <Text style={styles.miniActionText}>Select All Detected</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.miniActionButton}
-                    onPress={handleClearSelection}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle-outline" size={14} color={colors.textSecondary} />
-                    <Text style={styles.miniActionText}>Clear All</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {aiResult.requiresManualConfirmation && (
-                  <View style={styles.confirmPrompt}>
-                    <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
-                    <Text style={styles.confirmPromptText}>
-                      Please confirm or adjust the materials selected above.
-                    </Text>
-                  </View>
-                )}
               </View>
-            )}
 
-            {!isAnalyzing && aiResult && !aiResult.isAvailable && (
-              <View style={styles.aiUnavailableBox}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
-                <Text style={styles.aiUnavailableText}>
-                  {t('aiEstimateUnavailable')}
-                </Text>
+              {/* Multi-Select Components Breakdown List */}
+              <View style={styles.componentsList}>
+                {currentBreakdown.possibleScrapMaterials.map((comp) => {
+                  const isChecked = selectedMaterials.includes(comp.categoryId);
+                  return (
+                    <TouchableOpacity
+                      key={comp.categoryId + comp.componentName}
+                      style={[styles.componentRow, isChecked && styles.componentRowActive]}
+                      onPress={() => handleToggleMaterial(comp.categoryId)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isChecked ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={isChecked ? colors.primary : colors.textSecondary}
+                      />
+                      <View style={styles.componentInfo}>
+                        <View style={styles.componentNameRow}>
+                          <Text
+                            style={[
+                              styles.componentMaterialName,
+                              isChecked && styles.componentMaterialNameActive,
+                            ]}
+                          >
+                            {getCategoryDisplayName(comp.categoryId)}
+                          </Text>
+                          <Text style={styles.componentPartName}>• {comp.componentName}</Text>
+                        </View>
+                        {comp.description && (
+                          <Text style={styles.componentDesc}>{comp.description}</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            )}
+
+              {/* Select All / Clear All Buttons */}
+              <View style={styles.multiActionRow}>
+                <TouchableOpacity
+                  style={styles.miniActionButton}
+                  onPress={handleSelectAllDetected}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="checkmark-done" size={14} color={colors.primary} />
+                  <Text style={styles.miniActionText}>Select All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.miniActionButton}
+                  onPress={handleClearSelection}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close-circle-outline" size={14} color={colors.textSecondary} />
+                  <Text style={styles.miniActionText}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             {/* All Scrap Categories (Multi-Select Grid) */}
             <View style={styles.quickSelectionCard}>
@@ -443,7 +488,7 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
                   All Scrap Categories ({selectedMaterials.length} selected)
                 </Text>
                 <Text style={styles.quickSelectionSubtitle}>
-                  Multi-select any other scrap materials in this lot:
+                  Multi-select any additional scrap materials in this lot:
                 </Text>
               </View>
               <View style={styles.quickChipsGrid}>
@@ -478,50 +523,50 @@ export const TakePhotoScreen: React.FC<TakePhotoScreenProps> = ({ navigation }) 
               </View>
             </View>
 
-            {/* Bottom Actions inside ScrollView to ensure full responsiveness */}
-            <View style={styles.postCaptureActions}>
-              <PrimaryButton
-                title={
-                  selectedMaterials.length === 0
-                    ? 'Select At Least 1 Material'
-                    : selectedMaterials.length === 1
-                    ? `${t('continue')} • ${getCategoryDisplayName(selectedMaterials[0])}`
-                    : `${t('continue')} • ${selectedMaterials.length} Materials (${selectedMaterials
-                        .map(getCategoryDisplayName)
-                        .slice(0, 2)
-                        .join(', ')}${selectedMaterials.length > 2 ? '...' : ''})`
-                }
-                disabled={selectedMaterials.length === 0}
-                icon="arrow-forward"
-                onPress={handleContinue}
-                style={styles.continueButton}
-              />
+            {/* Retake / Gallery Secondary Options */}
+            <View style={styles.secondaryActionsRow}>
+              <TouchableOpacity
+                style={styles.textActionButton}
+                onPress={handleRetake}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-reverse-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.textActionText}>{t('retake')}</Text>
+              </TouchableOpacity>
 
-              <View style={styles.secondaryActionsRow}>
-                <TouchableOpacity
-                  style={styles.textActionButton}
-                  onPress={handleRetake}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="camera-reverse-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.textActionText}>{t('retake')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.textActionButton}
-                  onPress={handlePickFromGallery}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="images-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.textActionText}>{t('chooseGallery')}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.disclaimerText}>
-                {t('aiDisclaimer')}
-              </Text>
+              <TouchableOpacity
+                style={styles.textActionButton}
+                onPress={handlePickFromGallery}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="images-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.textActionText}>{t('chooseGallery')}</Text>
+              </TouchableOpacity>
             </View>
+
+            <Text style={styles.disclaimerText}>
+              {t('aiDisclaimer')}
+            </Text>
           </ScrollView>
+
+          {/* Sticky Bottom Bar - ALWAYS VISIBLE, IMMEDIATE CLICK, NO TOUCH CANCELLATION */}
+          <View style={styles.bottomBar}>
+            <PrimaryButton
+              title={
+                selectedMaterials.length === 0
+                  ? 'Select At Least 1 Material'
+                  : selectedMaterials.length === 1
+                  ? `${t('continue')} • ${getCategoryDisplayName(selectedMaterials[0])}`
+                  : `${t('continue')} • ${selectedMaterials.length} Materials (${selectedMaterials
+                      .map(getCategoryDisplayName)
+                      .slice(0, 2)
+                      .join(', ')}${selectedMaterials.length > 2 ? '...' : ''})`
+              }
+              disabled={selectedMaterials.length === 0}
+              icon="arrow-forward"
+              onPress={handleContinue}
+            />
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -539,13 +584,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     justifyContent: 'space-between',
   },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.lg,
   },
   previewCard: {
     width: '100%',
@@ -555,6 +604,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...shadows.md,
+  },
+  previewImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
   },
   previewOverlay: {
     position: 'absolute',
@@ -581,15 +635,94 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  postCaptureActions: {
-    marginTop: spacing.md,
+  itemHeaderCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  itemHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
+  },
+  itemBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryPale,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    gap: 4,
+  },
+  itemBadgeText: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  itemTitle: {
+    ...typography.bodyBold,
+    color: colors.text,
+    fontSize: 15,
+    flex: 1,
+  },
+  itemSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  itemSwitcherPrompt: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  appliancePillsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  appliancePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+  },
+  appliancePillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  appliancePillText: {
+    ...typography.caption,
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  appliancePillTextActive: {
+    color: colors.card,
+    fontWeight: '700',
+  },
+  breakdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginBottom: 8,
   },
   secondaryActionsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.xl,
-    marginVertical: 4,
+    marginVertical: spacing.md,
   },
   textActionButton: {
     flexDirection: 'row',
@@ -627,11 +760,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  previewImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
   },
   corner: {
     position: 'absolute',
@@ -714,6 +842,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    alignSelf: 'center',
   },
   aiLoadingText: {
     ...typography.bodySmall,
@@ -730,64 +859,25 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryPale,
     ...shadows.sm,
   },
-  aiHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  aiTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryPale,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    gap: 4,
-  },
-  aiTagText: {
-    ...typography.badge,
-    color: colors.primaryDark,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  confidenceText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    fontSize: 11,
-  },
-  objectTitle: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    fontWeight: '700',
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  objectHighlight: {
-    color: colors.primaryDark,
-    fontWeight: '800',
-  },
   objectSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    ...typography.bodyBold,
+    color: colors.text,
     fontSize: 12,
-    marginBottom: spacing.sm,
-    lineHeight: 16,
+    flex: 1,
+    lineHeight: 18,
   },
   componentsList: {
     gap: 8,
-    marginVertical: 4,
+    marginTop: 4,
   },
   componentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     backgroundColor: colors.cardAlt,
     borderWidth: 1.5,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    padding: spacing.sm,
     borderRadius: borderRadius.md,
   },
   componentRowActive: {
@@ -844,88 +934,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
-  },
-  confirmPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-    backgroundColor: '#FEF3C7',
-    padding: 6,
-    borderRadius: borderRadius.md,
-  },
-  confirmPromptText: {
-    ...typography.caption,
-    color: '#92400E',
-    fontWeight: '600',
-  },
-  aiButtonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: 4,
-  },
-  aiConfirmBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: borderRadius.md,
-    gap: 6,
-  },
-  aiConfirmBtnText: {
-    ...typography.button,
-    color: colors.card,
-    fontSize: 13,
-  },
-  aiChangeBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.cardAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiChangeBtnText: {
-    ...typography.button,
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-  aiUnavailableBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardAlt,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.sm,
-    gap: 8,
-  },
-  aiUnavailableText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flex: 1,
-    lineHeight: 18,
-  },
-  detectedFeaturesBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.primaryUltraLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: borderRadius.sm,
-    marginVertical: 4,
-    borderWidth: 1,
-    borderColor: colors.primaryPale,
-  },
-  detectedFeaturesText: {
-    ...typography.caption,
-    color: colors.primaryDark,
-    fontSize: 11,
-    fontWeight: '600',
-    flex: 1,
   },
   quickSelectionCard: {
     backgroundColor: colors.card,
@@ -1018,18 +1026,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primaryDark,
   },
-  retakeButton: {
-    alignItems: 'center',
-    minWidth: 72,
-  },
-  retakeText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  continueButton: {
-    width: '100%',
+  bottomBar: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    ...shadows.md,
   },
   disclaimerText: {
     ...typography.caption,

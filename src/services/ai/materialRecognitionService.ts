@@ -36,6 +36,8 @@ export function softmax(logits: number[]): number[] {
 export interface ClassifyScrapPhotoOptions {
   base64?: string;
   fileName?: string;
+  selectedCategory?: MaterialCategoryId | null;
+  categoryId?: MaterialCategoryId | null;
 }
 
 /**
@@ -46,9 +48,10 @@ export interface ClassifyScrapPhotoOptions {
 export function extractVisualFeaturesAndLogits(
   photoUri: string,
   base64Data?: string,
-  fileName?: string
+  fileName?: string,
+  selectedCategory?: MaterialCategoryId | null
 ): { logits: number[]; detectedFeatures: string; hasExplicitMatch: boolean } {
-  const combinedContext = `${photoUri.toLowerCase()} ${(fileName || '').toLowerCase()}`;
+  const combinedContext = `${photoUri.toLowerCase()} ${(fileName || '').toLowerCase()} ${(selectedCategory || '').toLowerCase()}`;
 
   // Base priors: start with balanced baseline logits
   const logitsMap: Record<string, number> = {
@@ -65,8 +68,22 @@ export function extractVisualFeaturesAndLogits(
   let hasExplicitMatch = false;
   let featureExplanation = 'On-device capture: Tap below to confirm or select scrap category';
 
-  // 1. Semantic Token Cues (file names, tags, appliance keywords)
+  // 0. Television & Display Appliance Cues
   if (
+    combinedContext.includes('tv_crt') ||
+    combinedContext.includes('television') ||
+    combinedContext.includes('crt') ||
+    combinedContext.includes('tv') ||
+    combinedContext.includes('lcd_panel') ||
+    combinedContext.includes('lcd')
+  ) {
+    logitsMap.copper += 5.5;
+    logitsMap.e_waste += 5.0;
+    logitsMap.pcb += 4.5;
+    logitsMap.iron_steel += 3.0;
+    featureExplanation = 'Identified: Television / Display Monitor (Copper coils, PCB & Steel frame)';
+    hasExplicitMatch = true;
+  } else if (
     combinedContext.includes('fan') ||
     combinedContext.includes('pankha') ||
     combinedContext.includes('motor') ||
@@ -169,18 +186,98 @@ export function extractVisualFeaturesAndLogits(
  * A single scrap item (e.g. Ceiling Fan, AC, Laptop) contains multiple high-value materials.
  */
 export function getScrapComponentBreakdown(
-  contextOrObjectName: string,
-  topCategory?: MaterialCategoryId
+  contextOrObjectName?: string,
+  topCategory?: MaterialCategoryId | null
 ): { detectedObject: string; possibleScrapMaterials: ScrapComponentBreakdown[] } {
-  const ctx = (contextOrObjectName || '').toLowerCase();
+  const ctx = `${contextOrObjectName || ''} ${topCategory || ''}`.toLowerCase();
 
+  // 1. Television / CRT
   if (
+    topCategory === 'tv_crt' ||
+    ctx.includes('tv_crt') ||
+    ctx.includes('tv') ||
+    ctx.includes('television') ||
+    ctx.includes('crt')
+  ) {
+    return {
+      detectedObject: 'Television / TV (CRT Display)',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'copper',
+          componentName: 'Copper Yoke & Transformer Coils',
+          description: 'High-purity copper windings from deflection yoke, transformer & power cable',
+        },
+        {
+          categoryId: 'pcb',
+          componentName: 'Main Circuit Board & Power Board',
+          description: 'Large PCB boards with copper traces and components',
+        },
+        {
+          categoryId: 'iron_steel',
+          componentName: 'Internal Steel Frame & Chassis',
+          description: 'Steel internal mounting brackets, chassis & screws',
+        },
+        {
+          categoryId: 'plastic',
+          componentName: 'Outer Cabinet & Bezel',
+          description: 'Molded rigid polymer body casing',
+        },
+        {
+          categoryId: 'e_waste',
+          componentName: 'CRT Glass Tube & Connectors',
+          description: 'Display cathode ray tube and electrical terminals',
+        },
+      ],
+    };
+  }
+
+  // 2. LCD / Flat Screen Monitor
+  if (
+    topCategory === 'lcd_panel' ||
+    ctx.includes('lcd_panel') ||
+    ctx.includes('lcd') ||
+    ctx.includes('led') ||
+    ctx.includes('monitor')
+  ) {
+    return {
+      detectedObject: 'Flat Screen TV / LCD Monitor',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'pcb',
+          componentName: 'Motherboard & T-Con Board',
+          description: 'Electronic logic and power supply circuit boards',
+        },
+        {
+          categoryId: 'copper',
+          componentName: 'Internal Wiring & Inductors',
+          description: 'Copper cables, power wiring and choke coils',
+        },
+        {
+          categoryId: 'aluminium',
+          componentName: 'Aluminium Backplate & Heat Sinks',
+          description: 'Lightweight aluminium chassis panels & cooling plates',
+        },
+        {
+          categoryId: 'plastic',
+          componentName: 'Outer Shell & Diffuser Sheets',
+          description: 'Polymer casing and optical acrylic layers',
+        },
+        {
+          categoryId: 'iron_steel',
+          componentName: 'Stand & Mount Brackets',
+          description: 'Heavy metal base and structural screws',
+        },
+      ],
+    };
+  }
+
+  // 3. Fan / Motor / Cooler / Pump
+  if (
+    topCategory === 'motor' ||
     ctx.includes('fan') ||
     ctx.includes('pankha') ||
     ctx.includes('motor') ||
-    ctx.includes('cooler') ||
-    ctx.includes('pump') ||
-    ctx.includes('appliance')
+    ctx.includes('pump')
   ) {
     return {
       detectedObject: 'Electric Fan / Motor Appliance',
@@ -192,28 +289,121 @@ export function getScrapComponentBreakdown(
         },
         {
           categoryId: 'iron_steel',
-          componentName: 'Motor Housing & Mount Rod',
-          description: 'Heavy structural iron/steel motor body',
+          componentName: 'Motor Housing & Rod',
+          description: 'Heavy structural iron/steel motor body & pipe',
         },
         {
           categoryId: 'aluminium',
-          componentName: 'Fan Blades & Trim',
-          description: 'Aluminium sheet blades and canopy',
+          componentName: 'Fan Blades & Canopy',
+          description: 'Aluminium sheet blades and canopy trim',
         },
         {
-          categoryId: 'e_waste',
-          componentName: 'Complete Fan Unit',
-          description: 'Whole assembled electric appliance',
+          categoryId: 'wires',
+          componentName: 'Power Cord & Wiring',
+          description: 'Flexible electrical wiring and capacitors',
         },
       ],
     };
   }
 
+  // 4. Electrical Wires & Cables
+  if (
+    topCategory === 'wires' ||
+    topCategory === 'cables' ||
+    ctx.includes('wire') ||
+    ctx.includes('cable') ||
+    ctx.includes('taar') ||
+    ctx.includes('cord')
+  ) {
+    return {
+      detectedObject: 'Electrical Wire / Cable Bundle',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'copper',
+          componentName: 'Stripped Pure Copper Wire',
+          description: 'Inner high-conductivity copper conductor',
+        },
+        {
+          categoryId: 'aluminium',
+          componentName: 'Aluminium Service Wire',
+          description: 'Lightweight aluminium conductor strands',
+        },
+        {
+          categoryId: 'plastic',
+          componentName: 'PVC / Rubber Insulation Sheath',
+          description: 'Outer polymer protective sheath',
+        },
+      ],
+    };
+  }
+
+  // 5. Battery
+  if (
+    topCategory === 'battery' ||
+    ctx.includes('battery') ||
+    ctx.includes('lead') ||
+    ctx.includes('inverter') ||
+    ctx.includes('ups')
+  ) {
+    return {
+      detectedObject: 'Inverter / Automotive Battery',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'battery',
+          componentName: 'Lead Plates & Terminal Posts',
+          description: 'High-density heavy lead metal and chemical plates',
+        },
+        {
+          categoryId: 'plastic',
+          componentName: 'Polypropylene Container',
+          description: 'Acid-resistant molded plastic battery casing',
+        },
+      ],
+    };
+  }
+
+  // 6. PCB / Circuit Boards
+  if (
+    topCategory === 'pcb' ||
+    ctx.includes('pcb') ||
+    ctx.includes('circuit') ||
+    ctx.includes('motherboard') ||
+    ctx.includes('chip')
+  ) {
+    return {
+      detectedObject: 'Electronic Circuit Board (PCB)',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'pcb',
+          componentName: 'Printed Circuit Boards',
+          description: 'Multi-layer boards with precious metal solder points',
+        },
+        {
+          categoryId: 'copper',
+          componentName: 'Transformers & Inductor Coils',
+          description: 'Copper transformer and choke coil windings',
+        },
+        {
+          categoryId: 'aluminium',
+          componentName: 'Aluminium Heat Sinks',
+          description: 'Cooling fins and heat spreaders',
+        },
+        {
+          categoryId: 'e_waste',
+          componentName: 'IC Chips & Connectors',
+          description: 'Mounted semiconductor microchips and gold-plated pins',
+        },
+      ],
+    };
+  }
+
+  // 7. Cooling Appliance / AC / Fridge
   if (
     ctx.includes('ac') ||
     ctx.includes('air conditioner') ||
     ctx.includes('fridge') ||
-    ctx.includes('refrigerator')
+    ctx.includes('refrigerator') ||
+    ctx.includes('cooler')
   ) {
     return {
       detectedObject: 'Cooling Appliance / AC Unit',
@@ -242,115 +432,114 @@ export function getScrapComponentBreakdown(
     };
   }
 
+  // 8. Iron & Steel
   if (
-    ctx.includes('computer') ||
-    ctx.includes('laptop') ||
-    ctx.includes('pc') ||
-    ctx.includes('cpu') ||
-    ctx.includes('monitor') ||
-    ctx.includes('electronics')
+    topCategory === 'iron_steel' ||
+    ctx.includes('iron') ||
+    ctx.includes('steel') ||
+    ctx.includes('loha')
   ) {
     return {
-      detectedObject: 'Computer / Electronic Equipment',
+      detectedObject: 'Iron & Steel Metal Scrap',
       possibleScrapMaterials: [
         {
-          categoryId: 'pcb',
-          componentName: 'Motherboard & Circuit Boards',
-          description: 'Printed circuit boards with precious metal traces',
+          categoryId: 'iron_steel',
+          componentName: 'Heavy Structural Steel & Iron',
+          description: 'Ferrous metal scrap, rebar, pipes, sheets & castings',
         },
+      ],
+    };
+  }
+
+  // 9. Plastic
+  if (
+    topCategory === 'mixed_plastic' ||
+    topCategory === 'plastic' ||
+    ctx.includes('plastic')
+  ) {
+    return {
+      detectedObject: 'Recyclable Plastic Scrap',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'plastic',
+          componentName: 'Rigid Molded Polymer',
+          description: 'HDPE, PP, PVC containers and appliance casings',
+        },
+        {
+          categoryId: 'iron_steel',
+          componentName: 'Fasteners & Metal Inserts',
+          description: 'Metal screws, clips and structural fittings',
+        },
+      ],
+    };
+  }
+
+  // 10. Copper
+  if (
+    topCategory === 'copper' ||
+    ctx.includes('copper') ||
+    ctx.includes('tamba') ||
+    ctx.includes('brass')
+  ) {
+    return {
+      detectedObject: 'Pure Copper Metal Scrap',
+      possibleScrapMaterials: [
+        {
+          categoryId: 'copper',
+          componentName: 'Pure Red Copper Metal',
+          description: 'Copper pipes, vessels, heavy busbars and conductors',
+        },
+        {
+          categoryId: 'wires',
+          componentName: 'Copper Wire Bundles',
+          description: 'Stripped and insulated copper wiring',
+        },
+      ],
+    };
+  }
+
+  // 11. Aluminium
+  if (
+    topCategory === 'aluminium' ||
+    ctx.includes('aluminium') ||
+    ctx.includes('tin') ||
+    ctx.includes('can')
+  ) {
+    return {
+      detectedObject: 'Aluminium Metal Scrap',
+      possibleScrapMaterials: [
         {
           categoryId: 'aluminium',
-          componentName: 'Heat Sinks & Chassis Panels',
-          description: 'Cast aluminium heat sinks and casing',
-        },
-        {
-          categoryId: 'copper',
-          componentName: 'Power Transformer & Heat Pipes',
-          description: 'Copper heat pipes, transformer windings, and cables',
-        },
-        {
-          categoryId: 'e_waste',
-          componentName: 'Complete System / Peripheral',
-          description: 'Assembled IT e-waste equipment',
+          componentName: 'Clean Aluminium Scrap',
+          description: 'Aluminium utensils, extrusions, sheets & window frames',
         },
       ],
     };
   }
 
-  if (
-    ctx.includes('cable') ||
-    ctx.includes('wire') ||
-    ctx.includes('taar') ||
-    ctx.includes('cord')
-  ) {
-    return {
-      detectedObject: 'Electrical Wire / Cable Bundle',
-      possibleScrapMaterials: [
-        {
-          categoryId: 'cables',
-          componentName: 'Insulated Electrical Wiring',
-          description: 'Standard insulated copper/aluminium cable',
-        },
-        {
-          categoryId: 'copper',
-          componentName: 'Stripped Pure Copper',
-          description: 'Inner metallic copper conductor',
-        },
-        {
-          categoryId: 'plastic',
-          componentName: 'PVC / Rubber Sheathing',
-          description: 'Outer protective polymer insulation',
-        },
-      ],
-    };
-  }
-
-  if (
-    ctx.includes('battery') ||
-    ctx.includes('inverter') ||
-    ctx.includes('ups') ||
-    ctx.includes('lead')
-  ) {
-    return {
-      detectedObject: 'Automotive / Industrial Battery',
-      possibleScrapMaterials: [
-        {
-          categoryId: 'battery',
-          componentName: 'Lead Plates & Terminal Posts',
-          description: 'High-density heavy lead metal',
-        },
-        {
-          categoryId: 'plastic',
-          componentName: 'Polypropylene Container',
-          description: 'Acid-resistant plastic battery casing',
-        },
-      ],
-    };
-  }
-
-  // Default breakdown for general recyclable object
+  // Default breakdown
   return {
-    detectedObject: topCategory ? `Recyclable Scrap Item` : 'Scrap Object',
+    detectedObject: topCategory ? `Scrap Lot (${topCategory.toUpperCase()})` : 'Mixed Scrap Material',
     possibleScrapMaterials: [
       {
         categoryId: topCategory || 'iron_steel',
-        componentName: 'Primary Metal / Body',
-        description: 'Main visible structural material',
+        componentName: 'Primary Recyclable Material',
+        description: 'Main scrap material contained in this lot',
       },
       {
         categoryId: 'copper',
-        componentName: 'Copper Components & Winding',
-        description: 'Internal electrical conductors & red metal',
+        componentName: 'Copper Wiring / Components',
+        description: 'High-value red metal conductors',
       },
       {
         categoryId: 'aluminium',
         componentName: 'Aluminium Parts & Trim',
-        description: 'Lightweight alloy and sheet parts',
+        description: 'Lightweight alloy sheet & cast parts',
       },
       {
         categoryId: 'e_waste',
-        componentName: 'Electrical / Appliance Scrap',
-        description: 'Motors, power units & electronic sub-assemblies',
+        componentName: 'Electronic / Motor Parts',
+        description: 'Circuitry, wiring and power components',
       },
     ],
   };
@@ -544,11 +733,14 @@ export const materialRecognitionService = {
         }
       }
 
+      const userSelectedCat = options?.selectedCategory || options?.categoryId || null;
+
       // 3. On-Device Material Feature Analysis
       const { logits, detectedFeatures, hasExplicitMatch } = extractVisualFeaturesAndLogits(
         photoUri,
         base64,
-        options?.fileName
+        options?.fileName,
+        userSelectedCat
       );
 
       // 4. Derive mathematical softmax probabilities
@@ -562,13 +754,14 @@ export const materialRecognitionService = {
         })).sort((a, b) => b.confidence - a.confidence);
 
       const topPrediction = candidates[0];
-      const finalConfidence = hasExplicitMatch ? topPrediction.confidence : 0.45;
+      const targetCategory = userSelectedCat || topPrediction.categoryId;
+      const finalConfidence = userSelectedCat ? 0.95 : (hasExplicitMatch ? topPrediction.confidence : 0.45);
       const alternatives: AIPredictionAlternative[] = candidates
         .slice(1)
         .filter((c) => c.confidence >= altThreshold)
         .slice(0, 2);
 
-      const requiresManualConfirmation = !hasExplicitMatch || finalConfidence < minThreshold;
+      const requiresManualConfirmation = !userSelectedCat && (!hasExplicitMatch || finalConfidence < minThreshold);
 
       // 6. Persist inference trace in SQLite
       const localId = `PRED-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -577,11 +770,11 @@ export const materialRecognitionService = {
         entityId: photoUri,
         modelName: modelInfo.name,
         modelVersion: modelInfo.version,
-        predictedCategory: topPrediction.categoryId,
+        predictedCategory: targetCategory,
         confidence: finalConfidence,
         alternatives,
         userConfirmed: !requiresManualConfirmation,
-        finalCategory: topPrediction.categoryId,
+        finalCategory: targetCategory,
         syncStatus: 'pending',
         createdAt: new Date().toISOString(),
       };
@@ -599,13 +792,13 @@ export const materialRecognitionService = {
       }
 
       const breakdown = getScrapComponentBreakdown(
-        `${photoUri} ${options?.fileName || ''}`,
-        topPrediction.categoryId
+        `${photoUri} ${options?.fileName || ''} ${targetCategory}`,
+        targetCategory
       );
 
       return {
         isAvailable: true,
-        predictedCategory: topPrediction.categoryId,
+        predictedCategory: targetCategory,
         detectedObject: breakdown.detectedObject,
         possibleScrapMaterials: breakdown.possibleScrapMaterials,
         confidence: finalConfidence,
@@ -614,7 +807,7 @@ export const materialRecognitionService = {
         modelName: modelInfo.name,
         modelVersion: modelInfo.version,
         localPredictionId: localId,
-        detectedFeatures,
+        detectedFeatures: userSelectedCat ? `Selected Item: ${breakdown.detectedObject}` : detectedFeatures,
       };
     } catch (err: any) {
       console.warn('[materialRecognitionService] Model inference error:', err);

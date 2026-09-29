@@ -96,10 +96,26 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
 
   // Collector confirms "Cash Received"
   const handleConfirmCashReceived = async () => {
-    if (submitting || !payment) return;
+    if (submitting || !deal) return;
     setSubmitting(true);
     try {
-      const result = await paymentService.confirmCollectorCashReceived(payment.paymentId, collectorId);
+      let activePayment = payment;
+      if (!activePayment) {
+        activePayment = await paymentService.initiatePayment({
+          dealId: deal.localId || deal.id,
+          method: 'cash',
+          actorId: collectorId,
+          actorRole: 'collector',
+        });
+        setPayment(activePayment);
+      }
+
+      if (!activePayment.cashPaidConfirmedByRecycler) {
+        // Record recycler cash confirmation in the ledger
+        await paymentService.confirmRecyclerCashPaid(activePayment.paymentId, deal.recyclerId || 'RECYCLER');
+      }
+
+      const result = await paymentService.confirmCollectorCashReceived(activePayment.paymentId, collectorId);
       setPayment(result.payment);
       setTx(result.transaction);
 
@@ -115,10 +131,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             text: t('viewReceipt') || 'रसीद देखें (View Receipt)',
             onPress: () =>
               navigation.navigate('Receipt', {
-                transactionId: result.transaction.localId || result.transaction.id,
+                transactionId: result.transaction?.localId || result.transaction?.id || deal.localId,
               }),
           },
-          { text: t('done') || 'ठीक है', style: 'cancel' },
+          {
+            text: t('tabDeals') || 'सौदे देखें (View Deals)',
+            onPress: () => navigation.navigate('CollectorDeals'),
+          },
         ]
       );
     } catch (e: any) {
@@ -217,6 +236,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               <Ionicons name="receipt-outline" size={22} color={colors.textLight} />
               <Text style={styles.viewReceiptText}>{t('viewReceipt') || 'रसीद देखें (View Receipt)'}</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dealsBtn}
+              onPress={() => navigation.navigate('CollectorDeals')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="reader-outline" size={20} color={colors.primary} />
+              <Text style={styles.dealsBtnText}>{t('tabDeals') || 'मेरे सौदे देखें (View Deals)'}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           /* Pending Payment Options */
@@ -264,7 +292,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
                   <Text style={styles.cashConfirmSub}>
                     {recyclerHasPaidCash
                       ? t('cashReceivedPromptSub') || 'राशि की जांच कर नीचे "नकद प्राप्त हुआ" बटन दबाएं।'
-                      : t('awaitingRecyclerCashSub') || 'रीसाइक्लर द्वारा भुगतान दर्ज करते ही आप पुष्टि कर सकेंगे।'}
+                      : t('cashReceivedPromptSub') || 'यदि रीसाइक्लर ने नकद दे दिया है, तो नीचे "नकद प्राप्त हुआ" दबाएं।'}
                   </Text>
                 </View>
               </View>
@@ -285,7 +313,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       </ScrollView>
 
       {/* Collector Action Button when not completed */}
-      {!isCompleted && paymentMethod === 'cash' && recyclerHasPaidCash && (
+      {!isCompleted && paymentMethod === 'cash' && (
         <View style={styles.bottomBar}>
           <PrimaryButton
             title={submitting ? t('confirming') || 'पुष्टि हो रही है...' : t('cashReceivedCTA') || '✓ नकद प्राप्त हुआ (Cash Received)'}
@@ -456,6 +484,23 @@ const styles = StyleSheet.create({
   viewReceiptText: {
     ...typography.h4,
     color: colors.textLight,
+  },
+  dealsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  dealsBtnText: {
+    ...typography.h4,
+    color: colors.primary,
   },
   bottomBar: {
     padding: spacing.lg,
