@@ -403,7 +403,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
 
                     <View style={styles.txFooterRow}>
                       <Text style={styles.txDate}>
-                        {new Date(tx.date).toLocaleDateString()}
+                        {new Date(tx.date || tx.completedAt || tx.createdAt || Date.now()).toLocaleDateString()}
                       </Text>
                       <View style={styles.paymentMethodBadge}>
                         <Text style={styles.paymentMethodText}>

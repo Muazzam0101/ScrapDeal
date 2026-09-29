@@ -27,9 +27,15 @@ import { CollectorSafetyScreen } from '../screens/collector/CollectorSafetyScree
 import { RecyclerLotDetailsScreen } from '../screens/recycler/RecyclerLotDetailsScreen';
 import { RecyclerMakeOfferScreen } from '../screens/recycler/RecyclerMakeOfferScreen';
 import { RecyclerOfferStatusScreen } from '../screens/recycler/RecyclerOfferStatusScreen';
+import { RecyclerPaymentScreen } from '../screens/recycler/RecyclerPaymentScreen';
+import { RecyclerTransactionsScreen } from '../screens/recycler/RecyclerTransactionsScreen';
 import { RecyclerRatesScreen } from '../screens/recycler/RecyclerRatesScreen';
 import { RecyclerPickupScreen } from '../screens/recycler/RecyclerPickupScreen';
 import { RecyclerReportsScreen } from '../screens/recycler/RecyclerReportsScreen';
+
+// Phase 6 Common Screens
+import { ReceiptScreen } from '../screens/common/ReceiptScreen';
+import { NotificationsScreen } from '../screens/common/NotificationsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -60,7 +66,9 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="DealConfirmation" component={DealConfirmationScreen} />
       <Stack.Screen name="Handover" component={HandoverScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="Success" component={SuccessScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
 
       {/* Collector Extra Screens */}
       <Stack.Screen name="CollectorPriceBoard" component={CollectorPriceBoardScreen} />
@@ -71,9 +79,12 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="RecyclerLotDetails" component={RecyclerLotDetailsScreen} />
       <Stack.Screen name="RecyclerMakeOffer" component={RecyclerMakeOfferScreen} />
       <Stack.Screen name="RecyclerOfferStatus" component={RecyclerOfferStatusScreen} />
+      <Stack.Screen name="RecyclerPayment" component={RecyclerPaymentScreen} />
+      <Stack.Screen name="RecyclerTransactions" component={RecyclerTransactionsScreen} />
       <Stack.Screen name="RecyclerRates" component={RecyclerRatesScreen} />
       <Stack.Screen name="RecyclerPickup" component={RecyclerPickupScreen} />
       <Stack.Screen name="RecyclerReports" component={RecyclerReportsScreen} />
     </Stack.Navigator>
   );
 };
+

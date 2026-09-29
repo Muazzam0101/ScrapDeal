@@ -1,6 +1,6 @@
 import { SyncStatus } from './sync';
 
-export type DealStatus = 'accepted' | 'handover_pending' | 'completed' | 'cancelled';
+export type DealStatus = 'accepted' | 'handover_pending' | 'payment_pending' | 'completed' | 'cancelled';
 
 export interface Deal {
   id: string; // localId

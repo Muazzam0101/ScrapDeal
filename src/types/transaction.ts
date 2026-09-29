@@ -1,36 +1,70 @@
 import { SyncStatus } from './sync';
+import { PaymentMethod, PaymentStatus } from './payment';
 
-export type PaymentMethod = 'cash' | 'upi';
-
-export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed';
-
-export interface Payment {
-  id: string;
-  transactionId: string;
-  amount: number;
-  method: PaymentMethod;
-  status: PaymentStatus;
-  upiReferenceNumber?: string;
-  timestamp: string;
-}
+export type TransactionStatus =
+  | 'pending'
+  | 'handover_completed'
+  | 'payment_pending'
+  | 'completed'
+  | 'cancelled';
 
 export interface Transaction {
-  id: string;
+  transactionId: string;
+  id?: string;
   localId?: string;
   remoteId?: string;
   transactionNumber: string;
+
+  dealId: string;
   lotId: string;
+
   collectorId: string;
   recyclerId: string;
-  materialName: string;
-  weightKg: number;
-  ratePerKg: number;
+
+  materialCategory: string;
+  materialName?: string;
+  finalWeight: number; // Final weight in kg
+  weightKg?: number; // Alias for backward compatibility
+
+  agreedPrice: number; // Agreed rate per kg in INR
+  ratePerKg?: number; // Alias for backward compatibility
   totalAmount: number;
+
+  paymentId?: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
-  date: string;
-  syncStatus?: SyncStatus;
-  createdAt?: string;
-  updatedAt?: string;
+
+  handoverStatus: string; // 'completed'
+  transactionStatus: TransactionStatus;
+
+  completedAt?: string;
+  date?: string; // Alias for backward compatibility
+
+  createdAt: string;
+  updatedAt: string;
+
+  syncStatus: SyncStatus;
   lastSyncedAt?: string;
+}
+
+export interface TransactionReceipt {
+  receiptNumber: string;
+  transactionId: string;
+  dealId: string;
+  lotId: string;
+  collectorId: string;
+  collectorName?: string;
+  recyclerId: string;
+  recyclerName?: string;
+  materialCategory: string;
+  materialName: string;
+  finalWeightKg: number;
+  ratePerKg: number;
+  totalAmount: number;
+  currency: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  providerReference?: string;
+  completedAt: string;
+  issuedAt: string;
 }

@@ -151,7 +151,11 @@ export const CollectorEarningsScreen: React.FC<CollectorEarningsScreenProps> = (
         {transactions.length > 0 && (
           <View style={styles.txList}>
             {transactions.map((tx) => (
-              <TransactionCard key={tx.localId || tx.id} transaction={tx} />
+              <TransactionCard
+                key={tx.localId || tx.id}
+                transaction={tx}
+                onPress={() => navigation.navigate('Receipt', { transactionId: tx.localId || tx.id })}
+              />
             ))}
           </View>
         )}

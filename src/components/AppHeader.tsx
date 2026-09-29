@@ -28,8 +28,28 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const navigation = useNavigation<any>();
   const { role, switchRole } = useRole();
-  const { switchRole: switchAuthRole } = useAuthStore();
+  const { currentUser, switchRole: switchAuthRole } = useAuthStore();
   const { t } = useLanguage();
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const checkUnread = async () => {
+      try {
+        if (currentUser?.id) {
+          const { notificationRepository } = await import('../services/sqlite/repositories/notificationRepository');
+          const count = await notificationRepository.getUnreadCount(currentUser.id);
+          if (isMounted) setUnreadCount(count);
+        }
+      } catch {}
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentUser?.id]);
 
   const handleRoleSwitch = () => {
     const nextRole = role === 'collector' ? 'recycler' : 'collector';
@@ -106,9 +126,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <TouchableOpacity
             style={styles.notificationButton}
             accessibilityLabel="Notifications"
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.8}
           >
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
-            <View style={styles.notificationDot} />
+            {unreadCount > 0 && <View style={styles.notificationDot} />}
           </TouchableOpacity>
         )}
       </View>

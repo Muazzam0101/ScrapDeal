@@ -29,14 +29,23 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [spendingSummary, setSpendingSummary] = useState({
+    totalSpending: 0,
+    totalWeight: 0,
+    transactionCount: 0,
+  });
 
   const recyclerId = currentUser?.id || 'RECYCLER-GREEN-EARTH';
 
   const loadData = async () => {
     try {
       setError(null);
-      const list = await transactionRepository.getTransactionsForUser(recyclerId, 'recycler');
+      const [list, summary] = await Promise.all([
+        transactionRepository.getTransactionsForUser(recyclerId, 'recycler'),
+        transactionRepository.getRecyclerSpendingSummary(recyclerId),
+      ]);
       setTransactions(list);
+      setSpendingSummary(summary);
     } catch (e: any) {
       console.warn('[RecyclerTransactions] Error loading transactions:', e);
       setError(t('failedToLoadTransactions'));
@@ -77,6 +86,17 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
+        {/* Real Completed Spending Summary Card */}
+        <View style={styles.spendingCard}>
+          <Text style={styles.spendingLabel}>{t('totalSpendingLabel') || 'Total Completed Spending'}</Text>
+          <Text style={styles.spendingAmount}>
+            ₹ {spendingSummary.totalSpending.toLocaleString('en-IN')}
+          </Text>
+          <Text style={styles.spendingSub}>
+            {spendingSummary.transactionCount} {t('dealsCountLabel') || 'deals'} • {spendingSummary.totalWeight} {t('kg') || 'kg'} {t('recycledLabel') || 'procured'}
+          </Text>
+        </View>
+
         {/* Filters Row */}
         <View style={styles.filtersRow}>
           {filters.map((f) => {
@@ -123,7 +143,11 @@ export const RecyclerTransactionsScreen: React.FC<{ navigation: any }> = ({
         {transactions.length > 0 && (
           <View style={styles.txList}>
             {transactions.map((tx) => (
-              <TransactionCard key={tx.localId || tx.id} transaction={tx} />
+              <TransactionCard
+                key={tx.localId || tx.id}
+                transaction={tx}
+                onPress={() => navigation.navigate('Receipt', { transactionId: tx.localId || tx.id })}
+              />
             ))}
           </View>
         )}
@@ -141,6 +165,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.huge,
+  },
+  spendingCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  spendingLabel: {
+    ...typography.caption,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  spendingAmount: {
+    ...typography.displayLarge,
+    color: colors.textLight,
+    marginTop: 2,
+  },
+  spendingSub: {
+    ...typography.bodySmall,
+    color: '#CBD5E1',
+    marginTop: 4,
   },
   filtersRow: {
     flexDirection: 'row',

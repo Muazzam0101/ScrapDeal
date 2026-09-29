@@ -388,4 +388,110 @@ export const firestoreService = {
     await setDoc(docRef, payload, { merge: true });
     return docId;
   },
+
+  /**
+   * Saves or updates a Payment in Firestore.
+   */
+  async savePaymentDoc(payment: any): Promise<string> {
+    if (!isConfigured) {
+      return payment.remoteId || `REMOTE-${payment.paymentId || payment.id}`;
+    }
+
+    const payload = {
+      ...payment,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    };
+
+    const paymentId = payment.remoteId || payment.paymentId || payment.id;
+    const paymentRef = doc(db, 'payments', paymentId);
+    await setDoc(paymentRef, payload, { merge: true });
+    return paymentId;
+  },
+
+  /**
+   * Gets payments for a user from Firestore.
+   */
+  async getPaymentsForUser(userId: string, role: 'collector' | 'recycler'): Promise<any[]> {
+    if (!isConfigured) return [];
+    const fieldName = role === 'collector' ? 'collectorId' : 'recyclerId';
+    const q = query(
+      collection(db, 'payments'),
+      where(fieldName, '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+      remoteId: d.id,
+    }));
+  },
+
+  /**
+   * Saves or updates a Notification in Firestore.
+   */
+  async saveNotificationDoc(notification: any): Promise<string> {
+    if (!isConfigured) {
+      return notification.remoteId || `REMOTE-${notification.notificationId || notification.id}`;
+    }
+
+    const payload = {
+      ...notification,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    };
+
+    const notifId = notification.remoteId || notification.notificationId || notification.id;
+    const notifRef = doc(db, 'notifications', notifId);
+    await setDoc(notifRef, payload, { merge: true });
+    return notifId;
+  },
+
+  /**
+   * Gets notifications for a user from Firestore.
+   */
+  async getNotificationsForUser(userId: string): Promise<any[]> {
+    if (!isConfigured) return [];
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+      remoteId: d.id,
+    }));
+  },
+
+  /**
+   * Saves or updates a DeviceToken document in Firestore.
+   */
+  async saveDeviceTokenDoc(token: any): Promise<void> {
+    if (!isConfigured) return;
+    const tokenRef = doc(db, 'deviceTokens', token.id);
+    await setDoc(tokenRef, {
+      ...token,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  },
+
+  /**
+   * Gets device tokens for a specific user from Firestore.
+   */
+  async getDeviceTokensForUser(userId: string): Promise<any[]> {
+    if (!isConfigured) return [];
+    const q = query(
+      collection(db, 'deviceTokens'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+  },
 };
+

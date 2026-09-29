@@ -7,10 +7,23 @@ import { dealRepository } from '../sqlite/repositories/dealRepository';
 import { handoverRepository } from '../sqlite/repositories/handoverRepository';
 import { priceRepository } from '../sqlite/repositories/priceRepository';
 import { aiRepository } from '../sqlite/repositories/aiRepository';
+import { paymentRepository } from '../sqlite/repositories/paymentRepository';
+import { notificationRepository } from '../sqlite/repositories/notificationRepository';
+import { deviceTokenRepository } from '../sqlite/repositories/deviceTokenRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
-import { SyncQueueItem, MaterialLot, User, Offer, Transaction, MaterialPrice } from '../../types';
+import {
+  SyncQueueItem,
+  MaterialLot,
+  User,
+  Offer,
+  Transaction,
+  MaterialPrice,
+  Payment,
+  AppNotification,
+  DeviceToken,
+} from '../../types';
 
 export type SyncEngineListener = (status: {
   isSyncing: boolean;
@@ -188,7 +201,7 @@ class SyncEngine {
       case 'transaction': {
         const tx: Transaction = payload;
         const remoteTxId = await firestoreService.saveTransactionDoc(tx);
-        const localId = tx.localId || tx.id;
+        const localId = tx.localId || tx.id || tx.transactionId || '';
         await transactionRepository.updateTransactionSyncStatus(localId, 'synced', remoteTxId);
         break;
       }
@@ -253,6 +266,28 @@ class SyncEngine {
         break;
       }
 
+      case 'payment': {
+        const payment: Payment = payload;
+        const remotePaymentId = await firestoreService.savePaymentDoc(payment);
+        const localId = payment.paymentId || payment.id || '';
+        await paymentRepository.updatePaymentSyncStatus(localId, 'synced', remotePaymentId);
+        break;
+      }
+
+      case 'notification': {
+        const notif: AppNotification = payload;
+        const remoteNotifId = await firestoreService.saveNotificationDoc(notif);
+        const localId = notif.notificationId || notif.id || '';
+        await notificationRepository.updateNotificationSyncStatus(localId, 'synced', remoteNotifId);
+        break;
+      }
+
+      case 'device_token': {
+        const token: DeviceToken = payload;
+        await firestoreService.saveDeviceTokenDoc(token);
+        break;
+      }
+
       default:
         console.warn(`[SyncEngine] Unrecognized entityType: ${op.entityType}`);
     }
@@ -282,6 +317,30 @@ class SyncEngine {
       const remotePrices = await firestoreService.getAllPriceDocs();
       for (const p of remotePrices) {
         await priceRepository.createPrice({ ...p, syncStatus: 'synced' });
+      }
+
+      // Pull user transactions
+      const remoteTransactions = await firestoreService.getTransactionsForUser(
+        currentUser.id,
+        currentUser.role as 'collector' | 'recycler'
+      );
+      if (remoteTransactions && remoteTransactions.length > 0) {
+        await transactionRepository.saveTransactionsFromRemote(remoteTransactions);
+      }
+
+      // Pull user payments
+      const remotePayments = await firestoreService.getPaymentsForUser(
+        currentUser.id,
+        currentUser.role as 'collector' | 'recycler'
+      );
+      if (remotePayments && remotePayments.length > 0) {
+        await paymentRepository.savePaymentsFromRemote(remotePayments);
+      }
+
+      // Pull user notifications
+      const remoteNotifications = await firestoreService.getNotificationsForUser(currentUser.id);
+      if (remoteNotifications && remoteNotifications.length > 0) {
+        await notificationRepository.saveNotificationsFromRemote(remoteNotifications);
       }
     } catch (e) {
       console.warn('[SyncEngine] Pull remote data warning:', e);

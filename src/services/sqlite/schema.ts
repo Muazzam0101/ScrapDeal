@@ -234,6 +234,60 @@ export const CREATE_TABLES_SQL = `
     lastSyncedAt TEXT
   );
 
+  -- Payments table (Phase 6)
+  CREATE TABLE IF NOT EXISTS payments (
+    paymentId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    dealId TEXT NOT NULL,
+    transactionId TEXT,
+    lotId TEXT,
+    collectorId TEXT NOT NULL,
+    recyclerId TEXT NOT NULL,
+    amount REAL NOT NULL,
+    currency TEXT DEFAULT 'INR',
+    method TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    initiatedAt TEXT NOT NULL,
+    completedAt TEXT,
+    provider TEXT,
+    providerReference TEXT,
+    cashPaidConfirmedByRecycler INTEGER DEFAULT 0,
+    cashPaidConfirmedAt TEXT,
+    cashReceivedConfirmedByCollector INTEGER DEFAULT 0,
+    cashReceivedConfirmedAt TEXT,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    lastSyncedAt TEXT
+  );
+
+  -- Notifications table (Phase 6)
+  CREATE TABLE IF NOT EXISTS notifications (
+    notificationId TEXT PRIMARY KEY,
+    remoteId TEXT,
+    userId TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    entityType TEXT NOT NULL,
+    entityId TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'pending',
+    lastSyncedAt TEXT
+  );
+
+  -- Device Tokens table (Phase 6)
+  CREATE TABLE IF NOT EXISTS device_tokens (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    token TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    deviceModel TEXT,
+    updatedAt TEXT NOT NULL
+  );
+
   -- Indices for faster lookups
   CREATE INDEX IF NOT EXISTS idx_lots_collector ON material_lots(collectorId);
   CREATE INDEX IF NOT EXISTS idx_lots_status ON material_lots(status);
@@ -250,4 +304,12 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_ai_predictions_entity ON ai_predictions(entityId);
   CREATE INDEX IF NOT EXISTS idx_ai_prices_lot ON ai_price_estimates(lotId);
   CREATE INDEX IF NOT EXISTS idx_ai_anomaly_tx ON ai_anomaly_events(transactionId);
+  CREATE INDEX IF NOT EXISTS idx_payments_deal ON payments(dealId);
+  CREATE INDEX IF NOT EXISTS idx_payments_tx ON payments(transactionId);
+  CREATE INDEX IF NOT EXISTS idx_payments_collector ON payments(collectorId);
+  CREATE INDEX IF NOT EXISTS idx_payments_recycler ON payments(recyclerId);
+  CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(userId);
+  CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(userId, read);
+  CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(userId);
 `;

@@ -16,6 +16,7 @@ export type LotStatus =
   | 'handover_pending'
   | 'handed_over'
   | 'handover_completed'
+  | 'payment_pending'
   | 'paid'
   | 'completed'
   | 'cancelled';

@@ -130,4 +130,56 @@ export const anomalyDetectionService = {
       localEventId,
     };
   },
+
+  /**
+   * Evaluates payment activity for anomalies:
+   * - Duplicate payment attempts
+   * - Unusually high amount
+   * - Multiple failed payments
+   * Strictly flags/alerts without automatically canceling transactions.
+   */
+  async evaluatePayment(params: {
+    paymentId?: string;
+    dealId: string;
+    amount: number;
+    method: string;
+    collectorId: string;
+    recyclerId: string;
+    failedAttemptsCount?: number;
+    isDuplicateAttempt?: boolean;
+  }): Promise<{ isFlagged: boolean; anomalyScore: number; reason?: string; signals: string[] }> {
+    const signals: string[] = [];
+    let signalWeights = 0;
+
+    if (params.isDuplicateAttempt) {
+      signals.push('duplicate_payment_attempt');
+      signalWeights += 0.85;
+    }
+
+    if (params.amount > 200000) {
+      signals.push('unusually_large_payment_amount');
+      signalWeights += 0.65;
+    }
+
+    if ((params.failedAttemptsCount || 0) >= 3) {
+      signals.push('repeated_payment_failures');
+      signalWeights += 0.70;
+    }
+
+    const anomalyScore = Number(Math.min(1.0, signalWeights).toFixed(2));
+    const isFlagged = anomalyScore >= 0.6;
+    let reason: string | undefined;
+
+    if (isFlagged) {
+      reason = 'Unusual payment activity detected. Review transaction before proceeding.';
+    }
+
+    return {
+      isFlagged,
+      anomalyScore,
+      reason,
+      signals,
+    };
+  },
 };
+

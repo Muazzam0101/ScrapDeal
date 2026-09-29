@@ -136,19 +136,74 @@ service cloud.firestore {
         resource.data.recyclerId == request.auth.uid
       );
 
-      // Either participant can record a completed transaction
+      // Either participant can record a transaction
       allow create: if isAuthenticated() && (
         request.resource.data.collectorId == request.auth.uid ||
         request.resource.data.recyclerId == request.auth.uid
       );
 
-      // Allow updating payment status/method
+      // Cannot tamper with transaction amount or agreed price on update
       allow update: if isAuthenticated() && (
-        resource.data.collectorId == request.auth.uid ||
-        resource.data.recyclerId == request.auth.uid
+        (resource.data.collectorId == request.auth.uid || resource.data.recyclerId == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'totalAmount', 'agreedPrice', 'finalWeight', 'collectorId', 'recyclerId', 'dealId'
+        ])
       );
 
       allow delete: if false;
     }
+
+    // Payments collection (Phase 6)
+    match /payments/{paymentId} {
+      // Only payment participants can read
+      allow read: if isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      );
+
+      // Recycler or Collector can create a legitimate payment record
+      // Initial status cannot be blindly created as completed
+      allow create: if isAuthenticated() && (
+        (request.resource.data.collectorId == request.auth.uid ||
+         request.resource.data.recyclerId == request.auth.uid)
+        && request.resource.data.status in ['pending', 'initiated', 'processing']
+      );
+
+      // Updates: Participants can confirm their respective steps
+      // Amount, currency, dealId, collectorId, recyclerId cannot be altered
+      allow update: if isAuthenticated() && (
+        (resource.data.collectorId == request.auth.uid || resource.data.recyclerId == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'amount', 'currency', 'dealId', 'collectorId', 'recyclerId'
+        ])
+      );
+
+      allow delete: if false;
+    }
+
+    // In-app Notifications collection (Phase 6)
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Authenticated system/users can create notification for participants
+      allow create: if isAuthenticated();
+
+      // Recipient can mark notification as read
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt', 'syncStatus', 'lastSyncedAt']);
+
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Device Tokens collection (Phase 6 FCM)
+    match /deviceTokens/{tokenId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
   }
 }
+

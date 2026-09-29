@@ -39,7 +39,8 @@
     "test:phase3": "node scripts/test_phase3.mjs",
     "test:phase4": "node scripts/test_phase4.mjs",
     "test:phase5": "node scripts/test_phase5.mjs",
-    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs && node scripts/test_phase4.mjs && node scripts/test_phase5.mjs"
+    "test:phase6": "node scripts/test_phase6.mjs",
+    "test:all": "node scripts/test_scenarios.mjs && node scripts/test_phase3.mjs && node scripts/test_phase4.mjs && node scripts/test_phase5.mjs && node scripts/test_phase6.mjs"
   },
   "private": true
 }

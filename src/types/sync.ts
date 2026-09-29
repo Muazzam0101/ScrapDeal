@@ -13,7 +13,10 @@ export type EntityType =
   | 'photo'
   | 'ai_prediction'
   | 'ai_price_estimate'
-  | 'ai_anomaly_event';
+  | 'ai_anomaly_event'
+  | 'payment'
+  | 'notification'
+  | 'device_token';
 
 export interface SyncMetadata {
   localId: string;

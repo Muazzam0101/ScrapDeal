@@ -31,7 +31,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   const displayMaterial = materialName || transaction?.materialName || 'Scrap Material';
   const displayWeight = weight || (transaction ? `${transaction.weightKg} kg` : '');
   const displayAmount = amount || (transaction ? `₹ ${transaction.totalAmount.toLocaleString('en-IN')}` : '');
-  const displayDate = date || (transaction ? new Date(transaction.date).toLocaleDateString() : '');
+  const displayDate = date || (transaction ? new Date(transaction.date || transaction.completedAt || transaction.createdAt || Date.now()).toLocaleDateString() : '');
   const displayPaymentMethod = (transaction ? transaction.paymentMethod : paymentMethod) || 'cash';
   const displayCompleted = transaction ? transaction.paymentStatus === 'completed' : isCompleted;
 

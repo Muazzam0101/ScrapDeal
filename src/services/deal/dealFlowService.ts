@@ -159,7 +159,22 @@ export const dealFlowService = {
       payload: { ...lot, status: 'offer_received', updatedAt: now },
     });
 
-    // 4. Trigger sync if online
+    // 4. Send real notification to Collector
+    try {
+      const { notificationService } = await import('../notification/notificationService');
+      await notificationService.sendNotification({
+        userId: lot.collectorId,
+        type: 'new_offer',
+        title: 'नया ऑफर प्राप्त हुआ (New Offer Received)',
+        body: `${offer.recyclerName} ने ₹${offer.ratePerKg}/किग्रा (कुल ₹${offer.totalAmount}) का ऑफर दिया है।`,
+        entityType: 'offer',
+        entityId: localId,
+      });
+    } catch (notifErr) {
+      console.warn('[DealFlow] Notification error on submit offer:', notifErr);
+    }
+
+    // 5. Trigger sync if online
     if (networkService.isOnline()) {
       syncEngine.triggerSync().catch((e) => console.warn('[DealFlow] Sync error on submit offer:', e));
     }
@@ -308,7 +323,22 @@ export const dealFlowService = {
       payload: updatedLot,
     });
 
-    // 7. Trigger sync if online
+    // 7. Send real notification to Recycler
+    try {
+      const { notificationService } = await import('../notification/notificationService');
+      await notificationService.sendNotification({
+        userId: selectedOffer.recyclerId,
+        type: 'offer_accepted',
+        title: 'ऑफर स्वीकार किया गया (Offer Accepted)',
+        body: `कलेक्टर ने आपका ऑफर स्वीकार कर लिया है। सौदा #${dealId.slice(-6)} बन गया है।`,
+        entityType: 'deal',
+        entityId: dealId,
+      });
+    } catch (notifErr) {
+      console.warn('[DealFlow] Notification error on accept offer:', notifErr);
+    }
+
+    // 8. Trigger sync if online
     if (networkService.isOnline()) {
       syncEngine.triggerSync().catch((e) => console.warn('[DealFlow] Sync error on accept offer:', e));
     }
@@ -454,7 +484,9 @@ export const dealFlowService = {
   },
 
   /**
-   * Finalizes handover, deal, lot, and generates a completed Transaction record.
+   * Finalizes handover and transitions Deal & Lot to 'payment_pending'.
+   * Initializes Transaction in 'payment_pending' state.
+   * Transaction is ONLY settled as completed after explicit payment confirmation.
    */
   async finalizeCompletedHandover(
     deal: Deal,
@@ -467,33 +499,40 @@ export const dealFlowService = {
     // 1. Complete Handover
     await handoverRepository.updateHandoverStatus(handover.localId, 'completed');
 
-    // 2. Complete Deal
-    await dealRepository.updateDealStatus(deal.localId, 'completed');
+    // 2. Set Deal to payment_pending
+    await dealRepository.updateDealStatus(deal.localId, 'payment_pending');
 
-    // 3. Complete Lot
+    // 3. Set Lot to payment_pending
     await lotRepository.updateLot({
       localId: deal.lotId,
-      status: 'completed',
+      status: 'payment_pending',
       weightKg: finalWeight,
       agreedTotalAmount: finalTotal,
       updatedAt: now,
     });
 
-    // 4. Create Transaction
+    // 4. Create Transaction with payment_pending status
     const txId = `TX-${Date.now()}`;
     const tx: Transaction = {
       id: txId,
       localId: txId,
+      transactionId: txId,
       transactionNumber: `TRX-${Date.now().toString().slice(-6)}`,
+      dealId: deal.localId || deal.id,
       lotId: deal.lotId,
       collectorId: deal.collectorId,
       recyclerId: deal.recyclerId,
+      materialCategory: deal.materialCategoryId || 'mixed',
       materialName: deal.materialName,
+      finalWeight,
       weightKg: finalWeight,
+      agreedPrice: deal.agreedRatePerKg,
       ratePerKg: deal.agreedRatePerKg,
       totalAmount: finalTotal,
-      paymentMethod: 'cash', // Default recorded method, updated when chosen
-      paymentStatus: 'completed',
+      paymentMethod: 'cash', // Default recorded method until chosen
+      paymentStatus: 'pending',
+      handoverStatus: 'completed',
+      transactionStatus: 'payment_pending',
       date: now,
       createdAt: now,
       updatedAt: now,
@@ -501,7 +540,7 @@ export const dealFlowService = {
     };
     await transactionRepository.createTransaction(tx);
 
-    // 5. Enqueue all completions in sync queue
+    // 5. Enqueue operations in sync queue
     await syncQueueRepository.enqueueOperation({
       entityType: 'handover',
       localId: handover.localId,
@@ -513,14 +552,14 @@ export const dealFlowService = {
       entityType: 'deal',
       localId: deal.localId,
       operationType: 'UPDATE',
-      payload: { ...deal, status: 'completed', updatedAt: now },
+      payload: { ...deal, status: 'payment_pending', updatedAt: now },
     });
 
     await syncQueueRepository.enqueueOperation({
       entityType: 'material_lot',
       localId: deal.lotId,
       operationType: 'UPDATE',
-      payload: { localId: deal.lotId, status: 'completed', updatedAt: now },
+      payload: { localId: deal.lotId, status: 'payment_pending', updatedAt: now },
     });
 
     await syncQueueRepository.enqueueOperation({
@@ -529,6 +568,30 @@ export const dealFlowService = {
       operationType: 'CREATE',
       payload: tx,
     });
+
+    // 6. Send real notifications to Collector and Recycler
+    try {
+      const { notificationService } = await import('../notification/notificationService');
+      await notificationService.sendNotification({
+        userId: deal.collectorId,
+        type: 'handover_confirmed',
+        title: 'हैंडओवर पूरा हुआ (Handover Confirmed)',
+        body: `सामग्री का हैंडओवर पूरा हुआ। ₹${finalTotal} का भुगतान लंबित है।`,
+        entityType: 'deal',
+        entityId: deal.localId || deal.id,
+      });
+
+      await notificationService.sendNotification({
+        userId: deal.recyclerId,
+        type: 'handover_confirmed',
+        title: 'हैंडओवर पूरा हुआ (Handover Confirmed)',
+        body: `हैंडओवर पूरा हुआ। कृपया ₹${finalTotal} का भुगतान करें।`,
+        entityType: 'deal',
+        entityId: deal.localId || deal.id,
+      });
+    } catch (notifErr) {
+      console.warn('[DealFlow] Notification error on handover completion:', notifErr);
+    }
 
     return tx;
   },
@@ -545,11 +608,12 @@ export const dealFlowService = {
     }
 
     const now = new Date().toISOString();
-    await transactionRepository.updatePaymentStatus(tx.localId || tx.id, 'completed', paymentMethod);
+    const txKey = tx.localId || tx.id || tx.transactionId || '';
+    await transactionRepository.updatePaymentStatus(txKey, 'completed', paymentMethod);
 
     await syncQueueRepository.enqueueOperation({
       entityType: 'transaction',
-      localId: tx.localId || tx.id,
+      localId: txKey,
       operationType: 'UPDATE',
       payload: {
         ...tx,

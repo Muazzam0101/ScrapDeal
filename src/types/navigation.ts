@@ -17,8 +17,10 @@ export type RootStackParamList = {
   RecyclerMatching: { categoryId: MaterialCategoryId; weightKg: number };
   DealConfirmation: { categoryId: MaterialCategoryId; weightKg: number; ratePerKg?: number };
   Handover: { lotId?: string };
-  Payment: { amount?: number; lotId?: string };
-  Success: { lotId?: string; amount?: number; recyclerName?: string };
+  Payment: { amount?: number; lotId?: string; dealId?: string };
+  Receipt: { transactionId: string; dealId?: string };
+  Success: { lotId?: string; amount?: number; recyclerName?: string; transactionId?: string };
+  Notifications: undefined;
 
   // Collector Extra Screens
   CollectorPriceBoard: undefined;
@@ -29,6 +31,8 @@ export type RootStackParamList = {
   RecyclerLotDetails: { lotId?: string; isSamplePreview?: boolean };
   RecyclerMakeOffer: { lotId?: string; materialName?: string; weightKg?: number };
   RecyclerOfferStatus: { offerId?: string; lotId?: string };
+  RecyclerPayment: { dealId: string; lotId?: string; amount?: number };
+  RecyclerTransactions: undefined;
   RecyclerRates: undefined;
   RecyclerPickup: undefined;
   RecyclerReports: undefined;
