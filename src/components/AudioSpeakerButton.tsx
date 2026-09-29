@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -10,12 +10,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { useLanguage } from '../context/LanguageContext';
+import { ttsService } from '../services/audio/ttsService';
+import { LanguageCode } from '../types';
 
 interface AudioSpeakerButtonProps {
   label?: string;
   size?: 'small' | 'medium' | 'large';
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  speechText?: string;
+  language?: LanguageCode;
+  isPlaying?: boolean;
+  activeColor?: string;
 }
 
 export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
@@ -23,17 +29,50 @@ export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
   size = 'medium',
   style,
   onPress,
+  speechText,
+  language,
+  isPlaying: externalIsPlaying,
+  activeColor,
 }) => {
-  const { t } = useLanguage();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { language: currentAppLang, t } = useLanguage();
+  const [internalIsPlaying, setInternalIsPlaying] = useState(false);
+
+  const isControlled = externalIsPlaying !== undefined;
+  const isPlaying = isControlled ? externalIsPlaying : internalIsPlaying;
+  const activeLang = language || currentAppLang;
   const displayLabel = label || t('listen');
 
-  const handlePress = () => {
-    setIsPlaying(true);
-    if (onPress) onPress();
-    setTimeout(() => {
-      setIsPlaying(false);
-    }, 2400);
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount if it was playing internally
+      if (!isControlled && internalIsPlaying) {
+        ttsService.stop();
+      }
+    };
+  }, [internalIsPlaying, isControlled]);
+
+  const handlePress = async () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
+
+    if (!speechText) {
+      return;
+    }
+
+    if (isPlaying) {
+      await ttsService.stop();
+      setInternalIsPlaying(false);
+    } else {
+      setInternalIsPlaying(true);
+      await ttsService.speak(speechText, {
+        language: activeLang,
+        onDone: () => setInternalIsPlaying(false),
+        onStopped: () => setInternalIsPlaying(false),
+        onError: () => setInternalIsPlaying(false),
+      });
+    }
   };
 
   const isSmall = size === 'small';
@@ -45,7 +84,7 @@ export const AudioSpeakerButton: React.FC<AudioSpeakerButtonProps> = ({
         styles.button,
         isSmall && styles.buttonSmall,
         isLarge && styles.buttonLarge,
-        isPlaying && styles.buttonPlaying,
+        isPlaying && [styles.buttonPlaying, activeColor ? { backgroundColor: activeColor, borderColor: activeColor } : null],
         style,
       ]}
       onPress={handlePress}

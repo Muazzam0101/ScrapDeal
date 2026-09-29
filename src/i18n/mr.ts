@@ -149,6 +149,12 @@ export const mr: typeof en = {
   // Safety Screen
   safetyGuidelines: 'सुरक्षा मार्गदर्शक',
   safetyListenPrompt: 'सुरक्षा सूचना ऐकण्यासाठी "ऐका" वर टॅप करा',
+  audioLanguage: 'ऑडिओ भाषा',
+  listenAll: 'सर्व मार्गदर्शक ऐका',
+  stopAudio: 'थांबवा',
+  safetyAudioTitle: 'ध्वनी सुरक्षा मार्गदर्शक',
+  nowReading: 'सध्या वाचन सुरू आहे',
+  tapToListen: 'ऐका',
   safety1Title: 'वायर जाळणे धोकादायक आहे',
   safety1Desc: 'यामुळे विषारी धूर निघतो. कधीही वायर किंवा केबल जाळू नका.',
   safety2Title: 'Acid ने PCB साफ करू नका',

@@ -147,6 +147,12 @@ export const en = {
   // Safety Screen
   safetyGuidelines: 'Safety Guidelines',
   safetyListenPrompt: 'Tap Listen to hear safety instructions',
+  audioLanguage: 'Audio Language',
+  listenAll: 'Listen All',
+  stopAudio: 'Stop',
+  safetyAudioTitle: 'Voice Safety Guide',
+  nowReading: 'Now Playing',
+  tapToListen: 'Listen',
   safety1Title: 'Burning Wires is Dangerous',
   safety1Desc: 'Toxic fumes are released. Never burn wires or plastic cables.',
   safety2Title: 'Do Not Use Acid on PCBs',

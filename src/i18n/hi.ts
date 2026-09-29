@@ -149,6 +149,12 @@ export const hi: typeof en = {
   // Safety Screen
   safetyGuidelines: 'सुरक्षा निर्देश',
   safetyListenPrompt: 'सुरक्षा निर्देश सुनने के लिए सुनें पर टैप करें',
+  audioLanguage: 'ऑडियो भाषा',
+  listenAll: 'सभी निर्देश सुनें',
+  stopAudio: 'रोकें',
+  safetyAudioTitle: 'बोलकर सुरक्षा निर्देश',
+  nowReading: 'अभी चल रहा है',
+  tapToListen: 'सुनें',
   safety1Title: 'तार जलाना खतरनाक है',
   safety1Desc: 'इससे जहरीला धुआँ निकलता है। कभी भी तार या केबल न जलाएं।',
   safety2Title: 'Acid से PCB साफ न करें',
