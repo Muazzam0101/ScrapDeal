@@ -131,7 +131,7 @@ class SyncEngine {
             opError?.message?.includes('User does not have permission');
 
           if (isPermError) {
-            console.warn(
+            console.info(
               `[SyncEngine] Cloud sync deferred for ${op.id} (${op.entityType}): Firebase permissions/rules required. Data is safely persisted in local SQLite.`
             );
             await syncQueueRepository.incrementRetry(

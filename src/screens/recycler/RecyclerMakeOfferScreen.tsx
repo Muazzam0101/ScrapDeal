@@ -19,6 +19,7 @@ import { syncEngine } from '../../services/sync/syncEngine';
 import { networkService } from '../../services/connectivity/networkService';
 import { AppHeader } from '../../components/AppHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { dealFlowService } from '../../services/deal/dealFlowService';
 
 interface RecyclerMakeOfferScreenProps {
   navigation: any;
@@ -54,7 +55,6 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
     const recyclerName = (currentUser as any)?.firmName || (currentUser as any)?.businessName || t('registeredRecycler');
 
     try {
-      const { dealFlowService } = await import('../../services/deal/dealFlowService');
       const offer = await dealFlowService.submitRecyclerOffer({
         lotId,
         recyclerId,
@@ -71,7 +71,7 @@ export const RecyclerMakeOfferScreen: React.FC<RecyclerMakeOfferScreenProps> = (
         totalAmount,
       });
     } catch (e: any) {
-      console.warn('[MakeOffer] Error creating offer:', e);
+      console.warn('[MakeOffer] Error creating offer:', e?.stack || e);
       alert(e?.message || t('errorSendingOffer'));
     }
   };

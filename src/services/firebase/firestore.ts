@@ -66,22 +66,40 @@ export const firestoreService = {
   },
 
   /**
+   * Retrieves a single lot document by ID from Firestore.
+   */
+  async getLotDoc(id: string): Promise<MaterialLot | null> {
+    if (!isConfigured) return null;
+    const lotRef = doc(db, 'lots', id);
+    const snap = await getDoc(lotRef);
+    if (!snap.exists()) return null;
+    return {
+      ...snap.data(),
+      id: snap.id,
+      remoteId: snap.id,
+      localId: snap.data().localId || snap.id,
+    } as MaterialLot;
+  },
+
+  /**
    * Fetches lots for a specific collector from Firestore.
    */
   async getLotsByCollector(collectorId: string): Promise<MaterialLot[]> {
     if (!isConfigured) return [];
     const q = query(
       collection(db, 'lots'),
-      where('collectorId', '==', collectorId),
-      orderBy('createdAt', 'desc')
+      where('collectorId', '==', collectorId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const lots = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
       localId: d.data().localId || d.id,
     } as MaterialLot));
+    return lots.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -91,16 +109,18 @@ export const firestoreService = {
     if (!isConfigured) return [];
     const q = query(
       collection(db, 'lots'),
-      where('status', 'in', ['created', 'ready', 'published', 'matching', 'offered', 'offer_received']),
-      orderBy('createdAt', 'desc')
+      where('status', 'in', ['created', 'ready', 'published', 'matching', 'offered', 'offer_received'])
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const lots = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
       localId: d.data().localId || d.id,
     } as MaterialLot));
+    return lots.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -151,15 +171,17 @@ export const firestoreService = {
     if (!isConfigured) return [];
     const q = query(
       collection(db, 'offers'),
-      where('lotId', '==', lotId),
-      orderBy('createdAt', 'desc')
+      where('lotId', '==', lotId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const offers = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
     } as Offer));
+    return offers.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -195,15 +217,17 @@ export const firestoreService = {
     const fieldName = role === 'collector' ? 'collectorId' : 'recyclerId';
     const q = query(
       collection(db, 'deals'),
-      where(fieldName, '==', userId),
-      orderBy('createdAt', 'desc')
+      where(fieldName, '==', userId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const deals = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
     }));
+    return deals.sort(
+      (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -282,15 +306,17 @@ export const firestoreService = {
     const fieldName = role === 'collector' ? 'collectorId' : 'recyclerId';
     const q = query(
       collection(db, 'transactions'),
-      where(fieldName, '==', userId),
-      orderBy('date', 'desc')
+      where(fieldName, '==', userId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const txs = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
     } as Transaction));
+    return txs.sort(
+      (a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -417,15 +443,17 @@ export const firestoreService = {
     const fieldName = role === 'collector' ? 'collectorId' : 'recyclerId';
     const q = query(
       collection(db, 'payments'),
-      where(fieldName, '==', userId),
-      orderBy('createdAt', 'desc')
+      where(fieldName, '==', userId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const payments = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
     }));
+    return payments.sort(
+      (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**
@@ -455,15 +483,17 @@ export const firestoreService = {
     if (!isConfigured) return [];
     const q = query(
       collection(db, 'notifications'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const notifs = snap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
       remoteId: d.id,
     }));
+    return notifs.sort(
+      (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   },
 
   /**

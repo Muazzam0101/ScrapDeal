@@ -17,6 +17,8 @@ import { syncEngine } from '../sync/syncEngine';
 import { networkService } from '../connectivity/networkService';
 import { traceabilityService } from '../traceability/traceabilityService';
 import { traceabilityRepository } from '../sqlite/repositories/traceabilityRepository';
+import { notificationService } from '../notification/notificationService';
+import { firestoreService } from '../firebase/firestore';
 
 export const dealFlowService = {
   /**
@@ -104,7 +106,17 @@ export const dealFlowService = {
       throw new Error('प्रस्तावित दर 0 से अधिक होनी चाहिए (Rate must be greater than 0)');
     }
 
-    const lot = await lotRepository.getLotById(params.lotId);
+    let lot = await lotRepository.getLotById(params.lotId);
+    if (!lot && networkService.isOnline()) {
+      try {
+        const remote = await firestoreService.getLotDoc(params.lotId);
+        if (remote) {
+          lot = await lotRepository.createLot(remote);
+        }
+      } catch (remoteErr) {
+        console.warn('[DealFlow] Remote lot fetch fallback notice:', remoteErr);
+      }
+    }
     if (!lot) {
       throw new Error('लॉट नहीं मिला (Lot not found)');
     }
@@ -174,7 +186,6 @@ export const dealFlowService = {
 
     // 4. Send real notification to Collector
     try {
-      const { notificationService } = await import('../notification/notificationService');
       await notificationService.sendNotification({
         userId: lot.collectorId,
         type: 'new_offer',
@@ -349,7 +360,6 @@ export const dealFlowService = {
 
     // 7. Send real notification to Recycler
     try {
-      const { notificationService } = await import('../notification/notificationService');
       await notificationService.sendNotification({
         userId: selectedOffer.recyclerId,
         type: 'offer_accepted',
@@ -635,7 +645,6 @@ export const dealFlowService = {
 
     // 6. Send real notifications to Collector and Recycler
     try {
-      const { notificationService } = await import('../notification/notificationService');
       await notificationService.sendNotification({
         userId: deal.collectorId,
         type: 'handover_confirmed',

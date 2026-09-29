@@ -13,15 +13,15 @@ export const storageService = {
     }
 
     try {
-      // Fetch the file as a blob. On Web, use window.fetch to avoid React Native base64 blob polyfill warning
-      let blob: Blob;
-      if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
-        const response = await window.fetch(localUri);
-        blob = await response.blob();
-      } else {
-        const response = await fetch(localUri);
-        blob = await response.blob();
-      }
+      // Use XMLHttpRequest with blob response to avoid React Native Response.blob() base64 polyfill overhead
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => resolve(xhr.response);
+        xhr.onerror = () => reject(new Error('Failed to read image as blob'));
+        xhr.responseType = 'blob';
+        xhr.open('GET', localUri, true);
+        xhr.send(null);
+      });
 
       const storageRef = ref(storage, destinationPath);
       const snapshot = await uploadBytes(storageRef, blob);
@@ -29,8 +29,12 @@ export const storageService = {
 
       return downloadUrl;
     } catch (error: any) {
-      if (error?.code === 'storage/unauthorized' || error?.message?.includes('unauthorized') || error?.message?.includes('User does not have permission')) {
-        console.warn(
+      if (
+        error?.code === 'storage/unauthorized' ||
+        error?.message?.includes('unauthorized') ||
+        error?.message?.includes('User does not have permission')
+      ) {
+        console.info(
           `[FirebaseStorage] Cloud storage unauthorized for ${destinationPath} (deploy storage.rules to allow photo uploads). Maintaining local reference.`
         );
       } else {

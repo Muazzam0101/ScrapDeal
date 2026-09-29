@@ -6,6 +6,7 @@ import { colors, spacing, typography, borderRadius } from '../theme';
 import { useRole } from '../context/RoleContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLanguage } from '../context/LanguageContext';
+import { notificationRepository } from '../services/sqlite/repositories/notificationRepository';
 
 interface AppHeaderProps {
   title?: string;
@@ -37,7 +38,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     const checkUnread = async () => {
       try {
         if (currentUser?.id) {
-          const { notificationRepository } = await import('../services/sqlite/repositories/notificationRepository');
           const count = await notificationRepository.getUnreadCount(currentUser.id);
           if (isMounted) setUnreadCount(count);
         }

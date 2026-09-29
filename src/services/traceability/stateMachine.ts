@@ -9,8 +9,8 @@ const ALLOWED_TRANSITIONS: Record<TraceabilityStatus, TraceabilityStatus[]> = {
   collected: ['matched', 'deal_confirmed', 'cancelled'],
   matched: ['deal_confirmed', 'cancelled'],
   deal_confirmed: ['handover_pending', 'cancelled'],
-  handover_pending: ['handover_confirmed', 'cancelled'],
-  handover_confirmed: ['payment_pending', 'cancelled'],
+  handover_pending: ['handover_confirmed', 'payment_pending', 'cancelled'],
+  handover_confirmed: ['payment_pending', 'completed', 'cancelled'],
   payment_pending: ['completed', 'cancelled'],
   completed: [], // Terminal state: cannot transition out
   cancelled: [], // Terminal state: cannot transition out

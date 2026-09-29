@@ -144,9 +144,11 @@ class TraceabilityService {
       previousStatus: record.status,
       newStatus: 'matched',
       timestamp: now,
+      createdAt: now,
+      syncStatus: 'pending',
     };
 
-    await traceabilityRepository.createEvent(event);
+    await traceabilityRepository.recordEvent(event);
 
     return { record: updatedRecord, event };
   }
@@ -515,6 +517,36 @@ class TraceabilityService {
         updatedAt: now,
         syncStatus: 'pending',
       });
+    }
+
+    // Advance state machine sequentially to preserve chain of custody
+    if (record.status === 'deal_confirmed') {
+      record.status = 'handover_pending';
+    }
+
+    if (record.status === 'handover_pending') {
+      traceabilityStateMachine.assertValidTransition('handover_pending', 'handover_confirmed');
+      record.status = 'handover_confirmed';
+      // Record handover confirmed audit event if settlement finalized it
+      await traceabilityRepository.recordEvent({
+        eventId: referenceGenerator.generateEventId(),
+        traceabilityId: record.traceabilityId,
+        lotId,
+        dealId: transaction.dealId,
+        eventType: 'HANDOVER_CONFIRMED',
+        actorId: payment.collectorId || transaction.collectorId,
+        actorType: 'collector',
+        previousStatus: 'handover_pending',
+        newStatus: 'handover_confirmed',
+        timestamp: now,
+        createdAt: now,
+        syncStatus: 'pending',
+      });
+    }
+
+    if (record.status === 'handover_confirmed') {
+      traceabilityStateMachine.assertValidTransition('handover_confirmed', 'payment_pending');
+      record.status = 'payment_pending';
     }
 
     // Validate state machine transition to terminal COMPLETED state

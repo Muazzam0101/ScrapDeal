@@ -17,6 +17,8 @@ import { networkService } from '../connectivity/networkService';
 import { syncEngine } from '../sync/syncEngine';
 import { upiPaymentProvider } from './paymentProvider';
 import { notificationService } from '../notification/notificationService';
+import { traceabilityService } from '../traceability/traceabilityService';
+import { traceabilityRepository } from '../sqlite/repositories/traceabilityRepository';
 
 class PaymentService {
   /**
@@ -285,7 +287,6 @@ class PaymentService {
 
     // 3b. Finalize digital traceability & emit audit events
     try {
-      const { traceabilityService } = await import('../traceability/traceabilityService');
       await traceabilityService.onPaymentSettled({
         lotId: deal.lotId,
         transaction: tx,
@@ -464,7 +465,6 @@ class PaymentService {
 
     // 3b. Finalize digital traceability & emit audit events
     try {
-      const { traceabilityService } = await import('../traceability/traceabilityService');
       await traceabilityService.onPaymentSettled({
         lotId: deal.lotId,
         transaction: tx,
@@ -530,7 +530,6 @@ class PaymentService {
 
     let traceRecord = null;
     try {
-      const { traceabilityRepository } = await import('../sqlite/repositories/traceabilityRepository');
       traceRecord = await traceabilityRepository.getRecordByLotId(tx.lotId);
     } catch {}
 
