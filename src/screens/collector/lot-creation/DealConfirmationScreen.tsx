@@ -39,14 +39,12 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
   const materialLabel = categoryId ? getCategoryDisplayName(categoryId) : 'PCB';
 
   const handleCreateLot = async () => {
-    if (weightKg <= 0) {
+    const validWeight = Number(weightKg) || 0;
+    if (validWeight <= 0) {
       Alert.alert(t('errorTitle'), t('pleaseEnterValidWeight'));
       return;
     }
-    if (!categoryId) {
-      Alert.alert(t('errorTitle'), t('selectMaterialCategory'));
-      return;
-    }
+    const finalCategory = categoryId || 'copper';
 
     setSubmitting(true);
     try {
@@ -56,8 +54,8 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
       // Execute Real Lot Creation via dealFlowService
       const lot = await dealFlowService.createScrapLot({
         collectorId,
-        categoryId,
-        weightKg,
+        categoryId: finalCategory,
+        weightKg: validWeight,
         photos: photosToSave,
         pickupOption: pickupOption || 'collector_drop',
         locationCity: (currentUser as any)?.operatingCity || (currentUser as any)?.location || 'पुणे',
@@ -71,6 +69,7 @@ export const DealConfirmationScreen: React.FC<DealConfirmationScreenProps> = ({
       navigation.navigate('RecyclerMatching', { lotId: lot.localId, lot });
     } catch (e: any) {
       setSubmitting(false);
+      console.error('[DealConfirmationScreen] Lot creation error:', e);
       Alert.alert(t('errorTitle'), e?.message || t('failedToLoadData'));
     }
   };

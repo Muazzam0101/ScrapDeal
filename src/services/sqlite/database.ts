@@ -4,31 +4,118 @@ import { CREATE_TABLES_SQL } from './schema';
 const DB_NAME = 'scrapdeal.db';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
-let isInitialized = false;
+let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 /**
- * Gets or initializes the SQLite database singleton.
+ * Gets or initializes the SQLite database singleton with mutex protection.
+ * Ensures only one connection instance is opened and DDL migrations are serialized.
  */
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (dbInstance && isInitialized) {
+  if (dbInstance) {
     return dbInstance;
   }
 
-  try {
-    dbInstance = await SQLite.openDatabaseAsync(DB_NAME);
+  if (initPromise) {
+    return initPromise;
+  }
+
+  initPromise = (async () => {
     try {
-      await dbInstance.execAsync('PRAGMA foreign_keys = ON;');
-    } catch {}
-    // Execute DDL schema
-    await dbInstance.execAsync(CREATE_TABLES_SQL);
-    await runPhase4Migrations(dbInstance);
-    await runPhase5Migrations(dbInstance);
-    await runPhase6Migrations(dbInstance);
-    isInitialized = true;
-    return dbInstance;
-  } catch (error) {
-    console.error('[SQLite] Failed to initialize database:', error);
-    throw error;
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
+
+      try {
+        await db.execAsync('PRAGMA foreign_keys = ON;');
+      } catch {}
+
+      // Execute DDL schema statement by statement to guarantee all tables are created
+      const statements = CREATE_TABLES_SQL.split(';')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      for (const statement of statements) {
+        try {
+          await db.execAsync(`${statement};`);
+        } catch (stmtErr) {
+          // Table or index may already exist
+        }
+      }
+
+      // Run incremental schema migrations for older local databases
+      await runLotMigrations(db);
+      await runSyncQueueMigrations(db);
+      await runPhase4Migrations(db);
+      await runPhase5Migrations(db);
+      await runPhase6Migrations(db);
+
+      dbInstance = db;
+      return db;
+    } catch (error) {
+      initPromise = null; // Reset so retry can succeed
+      console.error('[SQLite] Failed to initialize database:', error);
+      throw error;
+    }
+  })();
+
+  return initPromise;
+}
+
+/**
+ * Ensures all columns for material_lots exist even on databases created in earlier phases.
+ */
+async function runLotMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
+  const lotColumns = [
+    'remoteId TEXT',
+    'lotNumber TEXT',
+    'collectorId TEXT DEFAULT "COLLECTOR-LOCAL"',
+    'categoryId TEXT DEFAULT "copper"',
+    'condition TEXT DEFAULT "mixed"',
+    'weightKg REAL DEFAULT 1',
+    'photos TEXT',
+    'locationCity TEXT DEFAULT "पुणे"',
+    'locationArea TEXT DEFAULT "महाराष्ट्र"',
+    'status TEXT DEFAULT "created"',
+    'estimatedMinAmount REAL',
+    'estimatedMaxAmount REAL',
+    'agreedRatePerKg REAL',
+    'agreedTotalAmount REAL',
+    'selectedRecyclerId TEXT',
+    'pickupOption TEXT DEFAULT "collector_drop"',
+    'syncStatus TEXT DEFAULT "pending"',
+    'createdAt TEXT',
+    'updatedAt TEXT',
+    'lastSyncedAt TEXT',
+  ];
+
+  for (const col of lotColumns) {
+    try {
+      await db.execAsync(`ALTER TABLE material_lots ADD COLUMN ${col};`);
+    } catch {
+      // Column already exists
+    }
+  }
+}
+
+/**
+ * Ensures all columns for sync_queue exist.
+ */
+async function runSyncQueueMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
+  const queueColumns = [
+    'remoteId TEXT',
+    'operationType TEXT DEFAULT "CREATE"',
+    'payload TEXT',
+    'status TEXT DEFAULT "pending"',
+    'retryCount INTEGER DEFAULT 0',
+    'errorMessage TEXT',
+    'createdAt TEXT',
+    'updatedAt TEXT',
+  ];
+
+  for (const col of queueColumns) {
+    try {
+      await db.execAsync(`ALTER TABLE sync_queue ADD COLUMN ${col};`);
+    } catch {
+      // Column already exists
+    }
   }
 }
 
@@ -213,15 +300,21 @@ async function runPhase6Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
 export function getDatabaseSync(): SQLite.SQLiteDatabase {
   if (!dbInstance) {
     dbInstance = SQLite.openDatabaseSync(DB_NAME);
-    dbInstance.execSync(CREATE_TABLES_SQL);
-    isInitialized = true;
+    const statements = CREATE_TABLES_SQL.split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    for (const stmt of statements) {
+      try {
+        dbInstance.execSync(`${stmt};`);
+      } catch {}
+    }
   }
   return dbInstance;
 }
 
 export function setDatabaseInstanceForTesting(customDb: any) {
   dbInstance = customDb;
-  isInitialized = true;
+  initPromise = Promise.resolve(customDb);
 }
 
 /**

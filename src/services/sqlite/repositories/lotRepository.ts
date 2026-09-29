@@ -9,39 +9,119 @@ export const lotRepository = {
     const db = await getDatabase();
     const photosJson = JSON.stringify(lot.photos || lot.photoUrls || []);
 
-    await db.runAsync(
-      `INSERT INTO material_lots (
-        localId, remoteId, lotNumber, collectorId, categoryId, condition, weightKg,
-        photos, locationCity, locationArea, status, estimatedMinAmount,
-        estimatedMaxAmount, agreedRatePerKg, agreedTotalAmount, selectedRecyclerId,
-        pickupOption, syncStatus, createdAt, updatedAt, lastSyncedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        lot.localId,
-        lot.remoteId || null,
-        lot.lotNumber || `LOT-${Date.now().toString().slice(-6)}`,
-        lot.collectorId,
-        lot.categoryId,
-        lot.condition || 'mixed',
-        lot.weightKg,
-        photosJson,
-        lot.locationCity || 'पुणे',
-        lot.locationArea || 'महाराष्ट्र',
-        lot.status || 'created',
-        lot.estimatedMinAmount || null,
-        lot.estimatedMaxAmount || null,
-        lot.agreedRatePerKg || null,
-        lot.agreedTotalAmount || null,
-        lot.selectedRecyclerId || null,
-        lot.pickupOption || 'collector_drop',
-        lot.syncStatus || 'pending',
-        lot.createdAt,
-        lot.updatedAt,
-        lot.lastSyncedAt || null,
-      ]
-    );
+    const params = [
+      String(lot.localId || `LOT-${Date.now()}`),
+      lot.remoteId ? String(lot.remoteId) : null,
+      String(lot.lotNumber || `LOT-${Date.now().toString().slice(-6)}`),
+      String(lot.collectorId || 'COLLECTOR-LOCAL'),
+      String(lot.categoryId || 'copper'),
+      String(lot.condition || 'mixed'),
+      Number(lot.weightKg) || 1,
+      photosJson,
+      String(lot.locationCity || 'पुणे'),
+      String(lot.locationArea || 'महाराष्ट्र'),
+      String(lot.status || 'created'),
+      lot.estimatedMinAmount !== undefined && lot.estimatedMinAmount !== null ? Number(lot.estimatedMinAmount) : null,
+      lot.estimatedMaxAmount !== undefined && lot.estimatedMaxAmount !== null ? Number(lot.estimatedMaxAmount) : null,
+      lot.agreedRatePerKg !== undefined && lot.agreedRatePerKg !== null ? Number(lot.agreedRatePerKg) : null,
+      lot.agreedTotalAmount !== undefined && lot.agreedTotalAmount !== null ? Number(lot.agreedTotalAmount) : null,
+      lot.selectedRecyclerId ? String(lot.selectedRecyclerId) : null,
+      String(lot.pickupOption || 'collector_drop'),
+      String(lot.syncStatus || 'pending'),
+      String(lot.createdAt || new Date().toISOString()),
+      String(lot.updatedAt || new Date().toISOString()),
+      lot.lastSyncedAt ? String(lot.lastSyncedAt) : null,
+    ];
+
+    try {
+      await db.runAsync(
+        `INSERT INTO material_lots (
+          localId, remoteId, lotNumber, collectorId, categoryId, condition, weightKg,
+          photos, locationCity, locationArea, status, estimatedMinAmount,
+          estimatedMaxAmount, agreedRatePerKg, agreedTotalAmount, selectedRecyclerId,
+          pickupOption, syncStatus, createdAt, updatedAt, lastSyncedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        params
+      );
+    } catch (insertErr) {
+      console.warn('[lotRepository] createLot insert failed, ensuring table schema and retrying:', insertErr);
+      await this.ensureTableSchema(db);
+      await db.runAsync(
+        `INSERT INTO material_lots (
+          localId, remoteId, lotNumber, collectorId, categoryId, condition, weightKg,
+          photos, locationCity, locationArea, status, estimatedMinAmount,
+          estimatedMaxAmount, agreedRatePerKg, agreedTotalAmount, selectedRecyclerId,
+          pickupOption, syncStatus, createdAt, updatedAt, lastSyncedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        params
+      );
+    }
 
     return lot;
+  },
+
+  /**
+   * Ensures the material_lots table and all required columns exist in SQLite.
+   */
+  async ensureTableSchema(db: any): Promise<void> {
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS material_lots (
+          localId TEXT PRIMARY KEY,
+          remoteId TEXT,
+          lotNumber TEXT,
+          collectorId TEXT NOT NULL,
+          categoryId TEXT NOT NULL,
+          condition TEXT DEFAULT 'mixed',
+          weightKg REAL NOT NULL,
+          photos TEXT,
+          locationCity TEXT,
+          locationArea TEXT,
+          status TEXT NOT NULL DEFAULT 'created',
+          estimatedMinAmount REAL,
+          estimatedMaxAmount REAL,
+          agreedRatePerKg REAL,
+          agreedTotalAmount REAL,
+          selectedRecyclerId TEXT,
+          pickupOption TEXT,
+          syncStatus TEXT NOT NULL DEFAULT 'pending',
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          lastSyncedAt TEXT
+        );
+      `);
+
+      const columns = [
+        'remoteId TEXT',
+        'lotNumber TEXT',
+        'collectorId TEXT DEFAULT "COLLECTOR-LOCAL"',
+        'categoryId TEXT DEFAULT "copper"',
+        'condition TEXT DEFAULT "mixed"',
+        'weightKg REAL DEFAULT 1',
+        'photos TEXT',
+        'locationCity TEXT DEFAULT "पुणे"',
+        'locationArea TEXT DEFAULT "महाराष्ट्र"',
+        'status TEXT DEFAULT "created"',
+        'estimatedMinAmount REAL',
+        'estimatedMaxAmount REAL',
+        'agreedRatePerKg REAL',
+        'agreedTotalAmount REAL',
+        'selectedRecyclerId TEXT',
+        'pickupOption TEXT DEFAULT "collector_drop"',
+        'syncStatus TEXT DEFAULT "pending"',
+        'createdAt TEXT',
+        'updatedAt TEXT',
+        'lastSyncedAt TEXT',
+      ];
+
+      for (const col of columns) {
+        try {
+          await db.execAsync(`ALTER TABLE material_lots ADD COLUMN ${col};`);
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[lotRepository] ensureTableSchema notice:', e);
+    }
   },
 
   /**

@@ -15,23 +15,36 @@ export const syncQueueRepository = {
     const db = await getDatabase();
     const id = `SYNC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     const now = new Date().toISOString();
-    const payloadStr = typeof params.payload === 'string' ? params.payload : JSON.stringify(params.payload);
+    const payloadStr = typeof params.payload === 'string' ? params.payload : JSON.stringify(params.payload || {});
 
-    await db.runAsync(
-      `INSERT INTO sync_queue (
-        id, entityType, localId, remoteId, operationType, payload, status, retryCount, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
-      [
-        id,
-        params.entityType,
-        params.localId,
-        params.remoteId || null,
-        params.operationType,
-        payloadStr,
-        now,
-        now,
-      ]
-    );
+    const queryParams = [
+      id,
+      String(params.entityType),
+      String(params.localId),
+      params.remoteId ? String(params.remoteId) : null,
+      String(params.operationType),
+      payloadStr,
+      now,
+      now,
+    ];
+
+    try {
+      await db.runAsync(
+        `INSERT INTO sync_queue (
+          id, entityType, localId, remoteId, operationType, payload, status, retryCount, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
+        queryParams
+      );
+    } catch (insertErr) {
+      console.warn('[syncQueueRepository] enqueueOperation failed, ensuring table and retrying:', insertErr);
+      await this.ensureTableSchema(db);
+      await db.runAsync(
+        `INSERT INTO sync_queue (
+          id, entityType, localId, remoteId, operationType, payload, status, retryCount, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
+        queryParams
+      );
+    }
 
     return {
       id,
@@ -45,6 +58,48 @@ export const syncQueueRepository = {
       createdAt: now,
       updatedAt: now,
     };
+  },
+
+  /**
+   * Ensures the sync_queue table and all required columns exist in SQLite.
+   */
+  async ensureTableSchema(db: any): Promise<void> {
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS sync_queue (
+          id TEXT PRIMARY KEY,
+          entityType TEXT NOT NULL,
+          localId TEXT NOT NULL,
+          remoteId TEXT,
+          operationType TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          retryCount INTEGER NOT NULL DEFAULT 0,
+          errorMessage TEXT,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL
+        );
+      `);
+
+      const columns = [
+        'remoteId TEXT',
+        'operationType TEXT DEFAULT "CREATE"',
+        'payload TEXT',
+        'status TEXT DEFAULT "pending"',
+        'retryCount INTEGER DEFAULT 0',
+        'errorMessage TEXT',
+        'createdAt TEXT',
+        'updatedAt TEXT',
+      ];
+
+      for (const col of columns) {
+        try {
+          await db.execAsync(`ALTER TABLE sync_queue ADD COLUMN ${col};`);
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[syncQueueRepository] ensureTableSchema notice:', e);
+    }
   },
 
   /**
