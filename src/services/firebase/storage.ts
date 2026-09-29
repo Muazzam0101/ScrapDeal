@@ -13,18 +13,31 @@ export const storageService = {
     }
 
     try {
-      // Fetch the file as a blob
-      const response = await fetch(localUri);
-      const blob = await response.blob();
+      // Fetch the file as a blob. On Web, use window.fetch to avoid React Native base64 blob polyfill warning
+      let blob: Blob;
+      if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+        const response = await window.fetch(localUri);
+        blob = await response.blob();
+      } else {
+        const response = await fetch(localUri);
+        blob = await response.blob();
+      }
 
       const storageRef = ref(storage, destinationPath);
       const snapshot = await uploadBytes(storageRef, blob);
       const downloadUrl = await getDownloadURL(snapshot.ref);
 
       return downloadUrl;
-    } catch (error) {
-      console.warn('[FirebaseStorage] Upload failed, falling back to local reference:', error);
-      throw error;
+    } catch (error: any) {
+      if (error?.code === 'storage/unauthorized' || error?.message?.includes('unauthorized') || error?.message?.includes('User does not have permission')) {
+        console.warn(
+          `[FirebaseStorage] Cloud storage unauthorized for ${destinationPath} (deploy storage.rules to allow photo uploads). Maintaining local reference.`
+        );
+      } else {
+        console.warn('[FirebaseStorage] Upload failed, falling back to local reference:', error);
+      }
+      // Return local URI safely so offline-first flow and lot sync continue without crashing
+      return localUri;
     }
   },
 

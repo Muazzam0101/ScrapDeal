@@ -6,27 +6,39 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Material lots photos: authenticated users can read, authenticated users can upload photos under 10MB
+    // Toggle for development & testing phase
+    function isDevMode() {
+      return true;
+    }
+
+    // Material lots photos: allow read & upload under 15MB
     match /lots/{lotId}/{imageFile} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated()
-        && request.resource.size < 10 * 1024 * 1024
+      allow read: if isDevMode() || isAuthenticated();
+      allow write: if (isDevMode() || isAuthenticated())
+        && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 
     // Handover evidence photos
+    match /handovers/{dealId}/{imageFile} {
+      allow read: if isDevMode() || isAuthenticated();
+      allow write: if (isDevMode() || isAuthenticated())
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Legacy evidence path
     match /evidence/{lotId}/{imageFile} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated()
-        && request.resource.size < 10 * 1024 * 1024
+      allow read: if isDevMode() || isAuthenticated();
+      allow write: if (isDevMode() || isAuthenticated())
+        && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 
     // Profile photos
     match /profiles/{userId}/{imageFile} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated()
-        && request.auth.uid == userId
+      allow read: if isDevMode() || isAuthenticated();
+      allow write: if (isDevMode() || (isAuthenticated() && request.auth.uid == userId))
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }

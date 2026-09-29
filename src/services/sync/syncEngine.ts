@@ -121,13 +121,37 @@ class SyncEngine {
           await syncQueueRepository.removeCompletedOperation(op.id);
           syncedCount++;
         } catch (opError: any) {
-          console.error(`[SyncEngine] Failed to sync operation ${op.id} (${op.entityType}):`, opError);
-          // NO DATA LOSS: Record remains in SQLite and stays in queue marked as failed
-          await syncQueueRepository.incrementRetry(
-            op.id,
-            opError?.message || 'Synchronization request failed'
-          );
-          failedCount++;
+          const isPermError =
+            opError?.code === 'permission-denied' ||
+            opError?.code === 'storage/unauthorized' ||
+            opError?.message?.includes('Missing or insufficient permissions') ||
+            opError?.message?.includes('permission-denied') ||
+            opError?.message?.includes('storage/unauthorized') ||
+            opError?.message?.includes('User does not have permission');
+
+          if (isPermError) {
+            console.warn(
+              `[SyncEngine] Cloud sync deferred for ${op.id} (${op.entityType}): Firebase permissions/rules required. Data is safely persisted in local SQLite.`
+            );
+            await syncQueueRepository.incrementRetry(
+              op.id,
+              'Firebase cloud permissions required'
+            );
+            failedCount++;
+            // Gracefully halt the rest of the cloud batch to avoid flooding identical permission errors
+            console.log(
+              '[SyncEngine] Deferring remaining cloud mutations until Firebase rules are deployed. Local SQLite remains active source of truth.'
+            );
+            break;
+          } else {
+            console.error(`[SyncEngine] Failed to sync operation ${op.id} (${op.entityType}):`, opError);
+            // NO DATA LOSS: Record remains in SQLite and stays in queue marked as failed
+            await syncQueueRepository.incrementRetry(
+              op.id,
+              opError?.message || 'Synchronization request failed'
+            );
+            failedCount++;
+          }
         }
       }
 
@@ -136,7 +160,7 @@ class SyncEngine {
 
       this._lastSyncedAt = new Date().toISOString();
       if (failedCount > 0) {
-        this._lastError = `${failedCount} ऑपरेशन्स सिंक नहीं हो सके (Will retry)`;
+        this._lastError = `${failedCount} ऑपरेशन्स सिंक नहीं हो सके (Local SQLite active)`;
       } else {
         this._lastError = null;
       }
@@ -342,8 +366,12 @@ class SyncEngine {
       if (remoteNotifications && remoteNotifications.length > 0) {
         await notificationRepository.saveNotificationsFromRemote(remoteNotifications);
       }
-    } catch (e) {
-      console.warn('[SyncEngine] Pull remote data warning:', e);
+    } catch (e: any) {
+      if (e?.code === 'permission-denied' || e?.message?.includes('Missing or insufficient permissions')) {
+        console.log('[SyncEngine] Cloud data pull requires Firebase rules/permissions; maintaining local SQLite cache.');
+      } else {
+        console.warn('[SyncEngine] Pull remote data warning:', e);
+      }
     }
   }
 }

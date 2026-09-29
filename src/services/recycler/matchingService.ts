@@ -39,8 +39,15 @@ export const matchingService = {
           for (const r of remoteRecyclers) {
             await userRepository.saveUser(r);
           }
-        } catch (remoteErr) {
-          console.warn('[MatchingService] Remote fetch failed, falling back to local SQLite:', remoteErr);
+        } catch (remoteErr: any) {
+          const isPermErr =
+            remoteErr?.code === 'permission-denied' ||
+            remoteErr?.message?.includes('Missing or insufficient permissions');
+          if (isPermErr) {
+            console.log('[MatchingService] Cloud recyclers directory requires Firebase auth/rules; smoothly utilizing verified local SQLite directory.');
+          } else {
+            console.warn('[MatchingService] Remote fetch failed, falling back to local SQLite:', remoteErr);
+          }
         }
       }
 
