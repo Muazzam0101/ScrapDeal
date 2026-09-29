@@ -30,17 +30,6 @@ export interface HandoverChecklistState {
   timestampConfirmed: boolean;
 }
 
-export interface TraceabilityRecord {
-  lotId: string;
-  sourceCollectorId: string;
-  assignedRecyclerId: string;
-  materialCategory: MaterialCategoryId;
-  verifiedWeightKg: number;
-  originGeoHash?: string;
-  destinationFacilityId?: string;
-  chainOfCustodyTimestamp: string;
-  manifestNumber?: string;
-}
 
 
 export interface MaterialLot {

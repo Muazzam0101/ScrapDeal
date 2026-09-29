@@ -46,6 +46,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
       await runPhase4Migrations(db);
       await runPhase5Migrations(db);
       await runPhase6Migrations(db);
+      await runPhase7Migrations(db);
 
       dbInstance = db;
       return db;
@@ -295,6 +296,114 @@ async function runPhase6Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
 }
 
 /**
+ * Ensures Phase 7 Digital Traceability tables and indices exist in local SQLite.
+ */
+async function runPhase7Migrations(db: SQLite.SQLiteDatabase): Promise<void> {
+  try {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS traceability_records (
+        traceabilityId TEXT PRIMARY KEY,
+        lotId TEXT NOT NULL,
+        dealId TEXT,
+        handoverId TEXT,
+        transactionId TEXT,
+        paymentId TEXT,
+        collectorId TEXT NOT NULL,
+        recyclerId TEXT,
+        materialCategory TEXT NOT NULL,
+        initialMaterial TEXT NOT NULL,
+        finalMaterial TEXT,
+        aiPredictedMaterial TEXT,
+        estimatedWeight REAL NOT NULL,
+        finalWeight REAL,
+        weightDifference REAL,
+        weightDifferenceDirection TEXT DEFAULT 'exact',
+        collectionLocation TEXT,
+        handoverLocation TEXT,
+        collectionTimestamp TEXT NOT NULL,
+        handoverTimestamp TEXT,
+        completionTimestamp TEXT,
+        status TEXT NOT NULL DEFAULT 'created',
+        handoverReference TEXT,
+        qrReferenceToken TEXT NOT NULL,
+        collectorConfirmedHandover INTEGER DEFAULT 0,
+        recyclerConfirmedHandover INTEGER DEFAULT 0,
+        paymentMethod TEXT,
+        paymentStatus TEXT,
+        agreedRatePerKg REAL,
+        agreedTotalAmount REAL,
+        hasConflict INTEGER DEFAULT 0,
+        conflictDetails TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        lastSyncedAt TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS traceability_events (
+        eventId TEXT PRIMARY KEY,
+        traceabilityId TEXT NOT NULL,
+        lotId TEXT NOT NULL,
+        dealId TEXT,
+        handoverId TEXT,
+        transactionId TEXT,
+        eventType TEXT NOT NULL,
+        actorId TEXT NOT NULL,
+        actorType TEXT NOT NULL,
+        previousStatus TEXT,
+        newStatus TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        location TEXT,
+        metadata TEXT,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        createdAt TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS handover_confirmations (
+        confirmationId TEXT PRIMARY KEY,
+        handoverId TEXT NOT NULL,
+        lotId TEXT NOT NULL,
+        dealId TEXT NOT NULL,
+        confirmedBy TEXT NOT NULL,
+        userType TEXT NOT NULL,
+        confirmationType TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        location TEXT,
+        weightConfirmed REAL NOT NULL,
+        notes TEXT,
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        createdAt TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS handover_photos (
+        photoId TEXT PRIMARY KEY,
+        lotId TEXT NOT NULL,
+        handoverId TEXT NOT NULL,
+        storageReference TEXT NOT NULL,
+        capturedAt TEXT NOT NULL,
+        capturedBy TEXT NOT NULL,
+        photoType TEXT NOT NULL DEFAULT 'at_handover',
+        syncStatus TEXT NOT NULL DEFAULT 'pending',
+        createdAt TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_traceability_lot ON traceability_records(lotId);
+      CREATE INDEX IF NOT EXISTS idx_traceability_deal ON traceability_records(dealId);
+      CREATE INDEX IF NOT EXISTS idx_traceability_handover ON traceability_records(handoverId);
+      CREATE INDEX IF NOT EXISTS idx_traceability_qr ON traceability_records(qrReferenceToken);
+      CREATE INDEX IF NOT EXISTS idx_traceability_status ON traceability_records(status);
+      CREATE INDEX IF NOT EXISTS idx_events_traceability ON traceability_events(traceabilityId);
+      CREATE INDEX IF NOT EXISTS idx_events_lot ON traceability_events(lotId);
+      CREATE INDEX IF NOT EXISTS idx_events_type ON traceability_events(eventType);
+      CREATE INDEX IF NOT EXISTS idx_ho_conf_handover ON handover_confirmations(handoverId);
+      CREATE INDEX IF NOT EXISTS idx_ho_photos_handover ON handover_photos(handoverId);
+    `);
+  } catch (e) {
+    console.warn('[SQLite] Phase 7 migration notice:', e);
+  }
+}
+
+/**
  * Synchronous accessor if already open.
  */
 export function getDatabaseSync(): SQLite.SQLiteDatabase {
@@ -337,5 +446,9 @@ export async function clearAllLocalData(): Promise<void> {
     DELETE FROM ai_predictions;
     DELETE FROM ai_price_estimates;
     DELETE FROM ai_anomaly_events;
+    DELETE FROM traceability_records;
+    DELETE FROM traceability_events;
+    DELETE FROM handover_confirmations;
+    DELETE FROM handover_photos;
   `);
 }

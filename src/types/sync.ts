@@ -16,7 +16,11 @@ export type EntityType =
   | 'ai_anomaly_event'
   | 'payment'
   | 'notification'
-  | 'device_token';
+  | 'device_token'
+  | 'traceability_record'
+  | 'traceability_event'
+  | 'handover_confirmation'
+  | 'handover_photo';
 
 export interface SyncMetadata {
   localId: string;

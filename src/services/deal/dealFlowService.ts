@@ -15,6 +15,8 @@ import { transactionRepository } from '../sqlite/repositories/transactionReposit
 import { syncQueueRepository } from '../sqlite/repositories/syncQueueRepository';
 import { syncEngine } from '../sync/syncEngine';
 import { networkService } from '../connectivity/networkService';
+import { traceabilityService } from '../traceability/traceabilityService';
+import { traceabilityRepository } from '../sqlite/repositories/traceabilityRepository';
 
 export const dealFlowService = {
   /**
@@ -66,6 +68,17 @@ export const dealFlowService = {
       operationType: 'CREATE',
       payload: lot,
     });
+
+    // 2b. Initialize digital traceability chain & immutable audit event
+    try {
+      await traceabilityService.initializeLotTraceability({
+        lot,
+        collectorId: params.collectorId,
+        location: params.locationCity ? { city: params.locationCity, area: params.locationArea } : undefined,
+      });
+    } catch (traceErr) {
+      console.warn('[DealFlow] Traceability init error on lot creation:', traceErr);
+    }
 
     // 3. Trigger sync if online
     if (networkService.isOnline()) {
@@ -323,6 +336,17 @@ export const dealFlowService = {
       payload: updatedLot,
     });
 
+    // 6b. Update Digital Traceability chain to deal_confirmed / handover_pending
+    try {
+      await traceabilityService.onDealConfirmed({
+        lotId: lot.localId,
+        deal,
+        actorId: collectorId || lot.collectorId,
+      });
+    } catch (traceErr) {
+      console.warn('[DealFlow] Traceability deal confirm error:', traceErr);
+    }
+
     // 7. Send real notification to Recycler
     try {
       const { notificationService } = await import('../notification/notificationService');
@@ -403,6 +427,23 @@ export const dealFlowService = {
     // Refresh handover state
     const updatedHandover = (await handoverRepository.getHandoverById(handover.localId))!;
 
+    // 1b. Update digital traceability record & emit audit event
+    try {
+      await traceabilityService.recordHandoverConfirmation({
+        dealId: deal.localId,
+        handoverId: handover.localId,
+        lotId: deal.lotId,
+        confirmedBy: deal.collectorId,
+        userType: 'collector',
+        finalWeight: confirmedWeight,
+        photoUri: params.photoUri,
+        notes: params.notes,
+        location: params.latitude ? { latitude: params.latitude, longitude: params.longitude } : undefined,
+      });
+    } catch (traceErr) {
+      console.warn('[DealFlow] Traceability collector handover error:', traceErr);
+    }
+
     // 2. Check if both parties confirmed
     let createdTx: Transaction | undefined;
     if (updatedHandover.collectorConfirmed && updatedHandover.recyclerConfirmed) {
@@ -462,6 +503,23 @@ export const dealFlowService = {
     // Refresh handover state
     const updatedHandover = (await handoverRepository.getHandoverById(handover.localId))!;
 
+    // 1b. Update digital traceability record & emit audit event
+    try {
+      await traceabilityService.recordHandoverConfirmation({
+        dealId: deal.localId,
+        handoverId: handover.localId,
+        lotId: deal.lotId,
+        confirmedBy: deal.recyclerId,
+        userType: 'recycler',
+        finalWeight: confirmedWeight,
+        photoUri: params.photoUri,
+        notes: params.notes,
+        location: params.latitude ? { latitude: params.latitude, longitude: params.longitude } : undefined,
+      });
+    } catch (traceErr) {
+      console.warn('[DealFlow] Traceability recycler handover error:', traceErr);
+    }
+
     // 2. Check if both parties confirmed
     let createdTx: Transaction | undefined;
     if (updatedHandover.collectorConfirmed && updatedHandover.recyclerConfirmed) {
@@ -511,7 +569,10 @@ export const dealFlowService = {
       updatedAt: now,
     });
 
-    // 4. Create Transaction with payment_pending status
+    // 4. Fetch linked Traceability Record for reference
+    const traceRecord = await traceabilityRepository.getRecordByLotId(deal.lotId);
+
+    // 5. Create Transaction with payment_pending status and traceability references
     const txId = `TX-${Date.now()}`;
     const tx: Transaction = {
       id: txId,
@@ -533,6 +594,9 @@ export const dealFlowService = {
       paymentStatus: 'pending',
       handoverStatus: 'completed',
       transactionStatus: 'payment_pending',
+      traceabilityId: traceRecord?.traceabilityId,
+      traceabilityReference: traceRecord?.traceabilityId,
+      handoverReference: traceRecord?.handoverReference,
       date: now,
       createdAt: now,
       updatedAt: now,

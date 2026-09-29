@@ -10,6 +10,7 @@ import { aiRepository } from '../sqlite/repositories/aiRepository';
 import { paymentRepository } from '../sqlite/repositories/paymentRepository';
 import { notificationRepository } from '../sqlite/repositories/notificationRepository';
 import { deviceTokenRepository } from '../sqlite/repositories/deviceTokenRepository';
+import { traceabilityRepository } from '../sqlite/repositories/traceabilityRepository';
 import { firestoreService } from '../firebase/firestore';
 import { storageService } from '../firebase/storage';
 import { networkService } from '../connectivity/networkService';
@@ -309,6 +310,46 @@ class SyncEngine {
       case 'device_token': {
         const token: DeviceToken = payload;
         await firestoreService.saveDeviceTokenDoc(token);
+        break;
+      }
+
+      case 'traceability_record': {
+        const record = payload;
+        const remoteRecId = await firestoreService.saveTraceabilityDoc(record);
+        await traceabilityRepository.updateRecord({
+          traceabilityId: record.traceabilityId,
+          syncStatus: 'synced',
+          lastSyncedAt: new Date().toISOString(),
+        });
+        break;
+      }
+
+      case 'traceability_event': {
+        const event = payload;
+        await firestoreService.saveTraceabilityEventDoc(event);
+        break;
+      }
+
+      case 'handover_confirmation': {
+        const confirmation = payload;
+        await firestoreService.saveHandoverConfirmationDoc(confirmation);
+        break;
+      }
+
+      case 'handover_photo': {
+        const photo = payload;
+        if (photo.storageReference && !photo.storageReference.startsWith('http')) {
+          try {
+            const uploadedUrl = await storageService.uploadPhoto(
+              photo.storageReference,
+              `handovers/${photo.handoverId}/${photo.photoId}.jpg`
+            );
+            photo.storageReference = uploadedUrl;
+          } catch (storageErr) {
+            console.warn('[SyncEngine] Handover photo upload failed, keeping local uri:', storageErr);
+          }
+        }
+        await firestoreService.saveHandoverPhotoDoc(photo);
         break;
       }
 

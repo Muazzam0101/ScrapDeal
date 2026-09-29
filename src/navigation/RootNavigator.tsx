@@ -37,6 +37,10 @@ import { RecyclerReportsScreen } from '../screens/recycler/RecyclerReportsScreen
 import { ReceiptScreen } from '../screens/common/ReceiptScreen';
 import { NotificationsScreen } from '../screens/common/NotificationsScreen';
 
+// Phase 7 Digital Traceability Screens
+import { TrackMaterialScreen } from '../screens/common/TrackMaterialScreen';
+import { VerifyRecordScreen } from '../screens/common/VerifyRecordScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
@@ -84,6 +88,10 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="RecyclerRates" component={RecyclerRatesScreen} />
       <Stack.Screen name="RecyclerPickup" component={RecyclerPickupScreen} />
       <Stack.Screen name="RecyclerReports" component={RecyclerReportsScreen} />
+
+      {/* Phase 7 Digital Traceability */}
+      <Stack.Screen name="TrackMaterial" component={TrackMaterialScreen} />
+      <Stack.Screen name="VerifyRecord" component={VerifyRecordScreen} />
     </Stack.Navigator>
   );
 };

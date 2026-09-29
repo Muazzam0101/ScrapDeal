@@ -479,19 +479,71 @@ export const firestoreService = {
   },
 
   /**
-   * Gets device tokens for a specific user from Firestore.
+   * Saves or updates a Traceability document in Firestore.
    */
-  async getDeviceTokensForUser(userId: string): Promise<any[]> {
-    if (!isConfigured) return [];
-    const q = query(
-      collection(db, 'deviceTokens'),
-      where('userId', '==', userId)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-    }));
+  async saveTraceabilityDoc(record: any): Promise<string> {
+    if (!isConfigured) return record.traceabilityId;
+    const recId = record.traceabilityId;
+    const recRef = doc(db, 'traceabilityRecords', recId);
+    await setDoc(recRef, {
+      ...record,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'synced',
+    }, { merge: true });
+    return recId;
+  },
+
+  /**
+   * Retrieves a Traceability document from Firestore.
+   */
+  async getTraceabilityDoc(traceabilityId: string): Promise<any | null> {
+    if (!isConfigured) return null;
+    const recRef = doc(db, 'traceabilityRecords', traceabilityId);
+    const snap = await getDoc(recRef);
+    if (!snap.exists()) return null;
+    return snap.data();
+  },
+
+  /**
+   * Appends an immutable Traceability Event in Firestore.
+   */
+  async saveTraceabilityEventDoc(event: any): Promise<string> {
+    if (!isConfigured) return event.eventId;
+    const evtId = event.eventId;
+    const evtRef = doc(db, 'traceabilityEvents', evtId);
+    await setDoc(evtRef, {
+      ...event,
+      syncStatus: 'synced',
+    });
+    return evtId;
+  },
+
+  /**
+   * Saves a Handover Confirmation in Firestore.
+   */
+  async saveHandoverConfirmationDoc(confirmation: any): Promise<string> {
+    if (!isConfigured) return confirmation.confirmationId;
+    const confId = confirmation.confirmationId;
+    const confRef = doc(db, 'handoverConfirmations', confId);
+    await setDoc(confRef, {
+      ...confirmation,
+      syncStatus: 'synced',
+    });
+    return confId;
+  },
+
+  /**
+   * Saves Handover Photo metadata in Firestore.
+   */
+  async saveHandoverPhotoDoc(photo: any): Promise<string> {
+    if (!isConfigured) return photo.photoId;
+    const pId = photo.photoId;
+    const pRef = doc(db, 'handoverPhotos', pId);
+    await setDoc(pRef, {
+      ...photo,
+      syncStatus: 'synced',
+    });
+    return pId;
   },
 };
 

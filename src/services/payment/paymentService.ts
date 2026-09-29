@@ -283,6 +283,18 @@ class PaymentService {
       updatedAt: now,
     });
 
+    // 3b. Finalize digital traceability & emit audit events
+    try {
+      const { traceabilityService } = await import('../traceability/traceabilityService');
+      await traceabilityService.onPaymentSettled({
+        lotId: deal.lotId,
+        transaction: tx,
+        payment: completedPayment,
+      });
+    } catch (traceErr) {
+      console.warn('[PaymentService] Traceability payment settled error:', traceErr);
+    }
+
     // 4. Enqueue sync mutations for all updated records
     await syncQueueRepository.enqueueOperation({
       entityType: 'payment',
@@ -450,6 +462,18 @@ class PaymentService {
       updatedAt: now,
     });
 
+    // 3b. Finalize digital traceability & emit audit events
+    try {
+      const { traceabilityService } = await import('../traceability/traceabilityService');
+      await traceabilityService.onPaymentSettled({
+        lotId: deal.lotId,
+        transaction: tx,
+        payment: completedPayment,
+      });
+    } catch (traceErr) {
+      console.warn('[PaymentService] Traceability UPI settled error:', traceErr);
+    }
+
     await syncQueueRepository.enqueueOperation({
       entityType: 'payment',
       localId: paymentId,
@@ -504,6 +528,12 @@ class PaymentService {
     const recycler = await userRepository.getUserById(tx.recyclerId);
     const payment = tx.paymentId ? await paymentRepository.getPaymentById(tx.paymentId) : null;
 
+    let traceRecord = null;
+    try {
+      const { traceabilityRepository } = await import('../sqlite/repositories/traceabilityRepository');
+      traceRecord = await traceabilityRepository.getRecordByLotId(tx.lotId);
+    } catch {}
+
     const collectorProfile = collector as any;
     const recyclerProfile = recycler as any;
 
@@ -525,6 +555,8 @@ class PaymentService {
       paymentMethod: tx.paymentMethod,
       paymentStatus: tx.paymentStatus,
       providerReference: payment?.providerReference || undefined,
+      traceabilityReference: traceRecord?.traceabilityId || tx.traceabilityReference,
+      handoverReference: traceRecord?.handoverReference || tx.handoverReference,
       completedAt: tx.completedAt || tx.date || new Date().toISOString(),
       issuedAt: new Date().toISOString(),
     };

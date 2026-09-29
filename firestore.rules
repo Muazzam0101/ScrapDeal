@@ -182,5 +182,72 @@ service cloud.firestore {
       allow read: if isDevMode() || isAuthenticated();
       allow write: if isDevMode() || isAuthenticated();
     }
+
+    // ==========================================
+    // Phase 7: Digital Traceability & Compliance
+    // ==========================================
+
+    // Traceability Records
+    match /traceabilityRecords/{traceabilityId} {
+      allow read: if isDevMode() || (isAuthenticated() && (
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      ));
+      allow create: if isDevMode() || (isAuthenticated() && (
+        request.resource.data.collectorId == request.auth.uid ||
+        request.resource.data.recyclerId == request.auth.uid
+      ));
+      // Immutability protection: historical collection fields & original weight cannot be tampered with
+      allow update: if isDevMode() || (isAuthenticated() && (
+        (resource.data.collectorId == request.auth.uid || resource.data.recyclerId == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'traceabilityId', 'lotId', 'collectorId', 'estimatedWeight',
+          'initialMaterial', 'collectionTimestamp', 'qrReferenceToken'
+        ])
+      ));
+      allow delete: if false;
+    }
+
+    // Traceability Audit Events (STRICTLY IMMUTABLE)
+    match /traceabilityEvents/{eventId} {
+      allow read: if isDevMode() || (isAuthenticated() && (
+        resource.data.actorId == request.auth.uid ||
+        resource.data.collectorId == request.auth.uid ||
+        resource.data.recyclerId == request.auth.uid
+      ));
+      // Users can append new audit events for their actions
+      allow create: if isDevMode() || (isAuthenticated() && (
+        request.resource.data.actorId == request.auth.uid
+      ));
+      // Historical audit events can NEVER be updated or deleted
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Handover Confirmations (Two-Party Confirmation Records)
+    match /handoverConfirmations/{confirmationId} {
+      allow read: if isDevMode() || isAuthenticated();
+      allow create: if isDevMode() || (isAuthenticated() && (
+        request.resource.data.confirmedBy == request.auth.uid
+      ));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Handover Photos Metadata
+    match /handoverPhotos/{photoId} {
+      allow read: if isDevMode() || isAuthenticated();
+      allow create: if isDevMode() || (isAuthenticated() && (
+        request.resource.data.capturedBy == request.auth.uid
+      ));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Public / Controlled Verification References
+    match /verificationReferences/{refId} {
+      allow read: if true; // Publicly verifiable without private identity leakage
+      allow write: if isDevMode() || isAuthenticated();
+    }
   }
 }

@@ -21,6 +21,8 @@ export type RootStackParamList = {
   Receipt: { transactionId: string; dealId?: string };
   Success: { lotId?: string; amount?: number; recyclerName?: string; transactionId?: string };
   Notifications: undefined;
+  TrackMaterial: { lotId?: string; dealId?: string };
+  VerifyRecord: { token?: string; reference?: string } | undefined;
 
   // Collector Extra Screens
   CollectorPriceBoard: undefined;

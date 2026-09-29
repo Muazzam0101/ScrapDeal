@@ -37,6 +37,10 @@ export interface Transaction {
   handoverStatus: string; // 'completed'
   transactionStatus: TransactionStatus;
 
+  traceabilityId?: string;
+  traceabilityReference?: string;
+  handoverReference?: string;
+
   completedAt?: string;
   date?: string; // Alias for backward compatibility
 
@@ -65,6 +69,8 @@ export interface TransactionReceipt {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   providerReference?: string;
+  traceabilityReference?: string;
+  handoverReference?: string;
   completedAt: string;
   issuedAt: string;
 }

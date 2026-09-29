@@ -20,10 +20,12 @@ import { useDealStore } from '../../../store/useDealStore';
 import { dealRepository } from '../../../services/sqlite/repositories/dealRepository';
 import { handoverRepository } from '../../../services/sqlite/repositories/handoverRepository';
 import { lotRepository } from '../../../services/sqlite/repositories/lotRepository';
-import { Deal, HandoverRecord } from '../../../types';
+import { traceabilityRepository } from '../../../services/sqlite/repositories/traceabilityRepository';
+import { Deal, HandoverRecord, TraceabilityRecord } from '../../../types';
 import { AppHeader } from '../../../components/AppHeader';
 import { PrimaryButton } from '../../../components/PrimaryButton';
 import { SecondaryButton } from '../../../components/SecondaryButton';
+import { TraceabilityQRModal } from '../../../components/TraceabilityQRModal';
 
 interface HandoverScreenProps {
   navigation: any;
@@ -49,6 +51,8 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
   const [handoverPhoto, setHandoverPhoto] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [locationRecorded, setLocationRecorded] = useState(false);
+  const [traceRecord, setTraceRecord] = useState<TraceabilityRecord | null>(null);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
 
   useEffect(() => {
     const loadDealAndHandover = async () => {
@@ -64,6 +68,11 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
         if (loadedDeal) {
           setDeal(loadedDeal);
           setConfirmedWeight(String(loadedDeal.agreedWeightKg));
+
+          try {
+            const trace = await traceabilityRepository.getRecordByLotId(loadedDeal.lotId);
+            setTraceRecord(trace);
+          } catch {}
 
           let loadedHo = await handoverRepository.getHandoverByDealId(loadedDeal.localId);
           if (!loadedHo) {
@@ -252,6 +261,29 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
               <Text style={styles.dealSummaryLabel}>{t('agreedTotalAmount')}:</Text>
               <Text style={styles.dealSummaryTotal}>₹{deal.agreedTotalAmount}</Text>
             </View>
+
+            {/* Traceability & Custody Quick Actions */}
+            <View style={styles.traceActionsRow}>
+              <TouchableOpacity
+                style={styles.traceActionBtn}
+                onPress={() => navigation.navigate('TrackMaterial', { lotId: deal.lotId, dealId: deal.localId })}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="git-commit-outline" size={16} color={colors.primary} />
+                <Text style={styles.traceActionBtnText}>कस्टडी ट्रैक करें (Timeline)</Text>
+              </TouchableOpacity>
+
+              {traceRecord && (
+                <TouchableOpacity
+                  style={styles.qrActionBtn}
+                  onPress={() => setQrModalVisible(true)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="qr-code-outline" size={16} color={colors.textLight} />
+                  <Text style={styles.qrActionBtnText}>QR Code</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -282,7 +314,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
           </View>
         </View>
 
-        {/* Actual Confirmed Weight Input */}
+        {/* Actual Confirmed Weight Input & Traceable Comparison */}
         <View style={styles.inputSection}>
           <Text style={styles.inputLabel}>{t('actualVerifiedWeight')}:</Text>
           <View style={styles.weightInputRow}>
@@ -295,6 +327,32 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
             />
             <Text style={styles.unitText}>{t('kg')}</Text>
           </View>
+
+          {/* Traceability: Clear Weight Difference Comparison */}
+          {deal && (() => {
+            const inputWeightNum = parseFloat(confirmedWeight) || 0;
+            const agreedWeightNum = deal.agreedWeightKg;
+            const diff = Math.abs(agreedWeightNum - inputWeightNum);
+            const roundedDiff = Math.round(diff * 100) / 100;
+            if (inputWeightNum > 0 && roundedDiff > 0) {
+              return (
+                <View style={styles.liveDiffCard}>
+                  <View style={styles.liveDiffRow}>
+                    <Text style={styles.liveDiffLabel}>अनुमानित (Estimated): {agreedWeightNum} kg</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+                    <Text style={styles.liveDiffFinal}>अंतिम (Final): {inputWeightNum} kg</Text>
+                  </View>
+                  <View style={styles.liveDiffPill}>
+                    <Ionicons name="scale-outline" size={14} color="#D97706" />
+                    <Text style={styles.liveDiffPillText}>
+                      वजन अंतर: {roundedDiff} kg ({inputWeightNum < agreedWeightNum ? 'कमी (Loss)' : 'वृद्धि (Gain)'})
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            return null;
+          })()}
         </View>
 
         {/* Handover Photo Capture */}
@@ -346,6 +404,19 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({ navigation, rout
           disabled={submitting || Boolean(alreadyConfirmed)}
         />
       </View>
+
+      {/* Traceability QR Modal */}
+      {traceRecord && (
+        <TraceabilityQRModal
+          visible={qrModalVisible}
+          onClose={() => setQrModalVisible(false)}
+          traceabilityId={traceRecord.traceabilityId}
+          lotId={traceRecord.lotId}
+          handoverReference={traceRecord.handoverReference}
+          qrReferenceToken={traceRecord.qrReferenceToken}
+          materialName={deal?.materialName}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -502,5 +573,82 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+  },
+  traceActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  traceActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryPale,
+    borderRadius: borderRadius.full,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  traceActionBtnText: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  qrActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  qrActionBtnText: {
+    ...typography.caption,
+    color: colors.textLight,
+    fontWeight: '700',
+  },
+  liveDiffCard: {
+    backgroundColor: colors.cardAlt,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  liveDiffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  liveDiffLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  liveDiffFinal: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  liveDiffPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  liveDiffPillText: {
+    ...typography.caption,
+    color: '#D97706',
+    fontWeight: '700',
+    fontSize: 11,
   },
 });
