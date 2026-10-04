@@ -8,7 +8,15 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  rf,
+  useResponsive,
+  responsiveContainer,
+} from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useLotStore } from '../../store/useLotStore';
 import { AppHeader } from '../../components/AppHeader';
@@ -24,6 +32,7 @@ interface RecyclerLotsScreenProps {
 export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigation }) => {
   const { t } = useLanguage();
   const { availableLots, fetchAvailableLots, isLoading, error } = useLotStore();
+  const { horizontalPadding, tabBarBottomPadding } = useResponsive();
   const [activeTab, setActiveTab] = useState<'new' | 'offered' | 'accepted'>('new');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -74,13 +83,20 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {/* Tabs */}
+        <View style={responsiveContainer}>
+          {/* Tabs */}
         <View style={styles.tabsRow}>
           {tabs.map((tab) => {
             const isSelected = activeTab === tab.key;
@@ -134,6 +150,7 @@ export const RecyclerLotsScreen: React.FC<RecyclerLotsScreenProps> = ({ navigati
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -145,9 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.huge,
   },
   tabsRow: {
     flexDirection: 'row',
@@ -169,6 +184,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...typography.caption,
+    fontSize: rf(12),
     color: colors.textSecondary,
     fontWeight: '700',
   },

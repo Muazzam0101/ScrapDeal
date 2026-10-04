@@ -10,7 +10,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme';
+import { colors, spacing, typography, borderRadius, shadows, rf } from '../theme';
 
 interface PrimaryButtonProps {
   title: string;
@@ -95,7 +95,10 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
           )}
 
           <View style={styles.textContainer}>
-            <Text style={[styles.title, { color: getTextColor() }, textStyle]}>
+            <Text
+              style={[styles.title, { color: getTextColor() }, textStyle]}
+              numberOfLines={2}
+            >
               {title}
             </Text>
             {subtitle && (
@@ -104,6 +107,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
                   styles.subtitle,
                   { color: isOutline ? colors.primaryDark : 'rgba(255,255,255,0.85)' },
                 ]}
+                numberOfLines={1}
               >
                 {subtitle}
               </Text>
@@ -113,7 +117,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
           {icon && iconPosition === 'right' && (
             <Ionicons
               name={icon}
-              size={22}
+              size={20}
               color={getTextColor()}
               style={styles.rightIcon}
             />
@@ -126,34 +130,42 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
+    minHeight: 48,
     borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 4,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   textContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 1,
+    paddingHorizontal: spacing.xs,
   },
   title: {
     ...typography.button,
+    fontSize: rf(15),
     textAlign: 'center',
   },
   subtitle: {
     ...typography.bodySmall,
+    fontSize: rf(11),
     marginTop: 2,
     textAlign: 'center',
   },
   leftIcon: {
-    marginRight: spacing.sm,
+    marginRight: spacing.xs + 2,
   },
   rightIcon: {
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs + 2,
   },
 });

@@ -8,7 +8,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  shadows,
+  rf,
+  useResponsive,
+  responsiveContainer,
+} from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useNetworkStore } from '../../store/useNetworkStore';
@@ -25,6 +34,7 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
   const { currentUser } = useAuthStore();
   const { isOnline } = useNetworkStore();
   const { isSyncing, pendingCount } = useSyncStore();
+  const { horizontalPadding, tabBarBottomPadding } = useResponsive();
   const [fieldMode, setFieldMode] = useState<boolean>(true); // Default to Field Mode for collectors
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
@@ -98,10 +108,18 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, fieldMode && styles.fieldScrollContent]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          fieldMode && styles.fieldScrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Collector Greeting Banner */}
+        <View style={responsiveContainer}>
+          {/* Collector Greeting Banner */}
         <View style={[styles.greetingRow, shadows.sm]}>
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="account-hard-hat" size={32} color={colors.primary} />
@@ -247,6 +265,7 @@ export const CollectorHomeScreen: React.FC<CollectorHomeScreenProps> = ({ naviga
           <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.feedbackBtnText}>{t('giveFeedback')}</Text>
         </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Field Usability Feedback Modal */}
@@ -366,9 +385,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
   },
   fieldScrollContent: {
     backgroundColor: colors.background,
@@ -382,7 +399,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    minHeight: 64,
+    minHeight: 60,
   },
   avatarCircle: {
     width: 48,
@@ -398,17 +415,19 @@ const styles = StyleSheet.create({
   },
   greetingTitle: {
     ...typography.h3,
+    fontSize: rf(17),
     color: colors.text,
   },
   greetingSub: {
     ...typography.bodyMedium,
+    fontSize: rf(13),
     color: colors.textSecondary,
     marginTop: 2,
   },
   heroCard: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.xl,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -418,9 +437,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heroIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -430,7 +449,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...typography.h1,
-    fontSize: 22,
+    fontSize: rf(20),
     color: colors.textLight,
     fontWeight: '800',
   },
@@ -489,31 +508,32 @@ const styles = StyleSheet.create({
   },
   safetyCardTitle: {
     ...typography.h3,
-    fontSize: 16,
+    fontSize: rf(15),
     color: '#991B1B',
   },
   safetyCardSub: {
     ...typography.caption,
+    fontSize: rf(11),
     color: '#7F1D1D',
     marginTop: 2,
   },
   gridIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
   },
   gridCardTitle: {
     ...typography.h4,
-    fontSize: 14,
+    fontSize: rf(13),
     color: colors.text,
     textAlign: 'center',
   },
   gridCardSub: {
     ...typography.bodySmall,
-    fontSize: 11,
+    fontSize: rf(10.5),
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 2,

@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { colors, spacing, typography, borderRadius } from '../theme';
+import { colors, spacing, typography, borderRadius, rf } from '../theme';
 import { useRole } from '../context/RoleContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLanguage } from '../context/LanguageContext';
@@ -67,72 +67,75 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.leftRow}>
-        {showBack ? (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={onBackPress}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.brandContainer}>
-            <View style={styles.logoBadge}>
-              <Ionicons name="sync-outline" size={18} color={colors.card} />
+      <View style={styles.innerContainer}>
+        <View style={styles.leftRow}>
+          {showBack ? (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={onBackPress}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.brandContainer}>
+              <Image
+                source={require('../../assets/logo.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
             </View>
-            <Text style={styles.brandTitle}>SCRAPDEAL</Text>
-          </View>
-        )}
+          )}
 
-        {title && showBack && (
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.rightRow}>
-        {location && (
-          <View style={styles.locationBadge}>
-            <Ionicons name="location-sharp" size={14} color={colors.primary} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {location}
+          {title && showBack && (
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {title}
             </Text>
-          </View>
-        )}
+          )}
+        </View>
 
-        {rightAction}
+        <View style={styles.rightRow}>
+          {location && (
+            <View style={styles.locationBadge}>
+              <Ionicons name="location-sharp" size={14} color={colors.primary} />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {location}
+              </Text>
+            </View>
+          )}
 
-        {showRoleSwitch && (
-          <TouchableOpacity
-            style={styles.roleSwitchButton}
-            onPress={handleRoleSwitch}
-            accessibilityLabel="Switch Role"
-          >
-            <Ionicons
-              name={role === 'collector' ? 'cube-outline' : 'person-outline'}
-              size={15}
-              color={colors.primaryDark}
-            />
-            <Text style={styles.roleSwitchText}>
-              {role === 'collector' ? 'Recycler' : 'Kabadi'}
-            </Text>
-          </TouchableOpacity>
-        )}
+          {rightAction}
 
-        {showNotification && (
-          <TouchableOpacity
-            style={styles.notificationButton}
-            accessibilityLabel="Notifications"
-            onPress={() => navigation.navigate('Notifications')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="notifications-outline" size={20} color={colors.text} />
-            {unreadCount > 0 && <View style={styles.notificationDot} />}
-          </TouchableOpacity>
-        )}
+          {showRoleSwitch && (
+            <TouchableOpacity
+              style={styles.roleSwitchButton}
+              onPress={handleRoleSwitch}
+              accessibilityLabel="Switch Role"
+            >
+              <Ionicons
+                name={role === 'collector' ? 'cube-outline' : 'person-outline'}
+                size={15}
+                color={colors.primaryDark}
+              />
+              <Text style={styles.roleSwitchText}>
+                {role === 'collector' ? 'Recycler' : 'Kabadi'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {showNotification && (
+            <TouchableOpacity
+              style={styles.notificationButton}
+              accessibilityLabel="Notifications"
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="notifications-outline" size={20} color={colors.text} />
+              {unreadCount > 0 && <View style={styles.notificationDot} />}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -140,15 +143,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
     minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  innerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    width: '100%',
+    maxWidth: 540,
   },
   leftRow: {
     flexDirection: 'row',
@@ -168,23 +178,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  brandTitle: {
-    ...typography.h3,
-    color: colors.primaryDark,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  headerLogo: {
+    width: 130,
+    height: 36,
   },
   headerTitle: {
     ...typography.h3,
+    fontSize: rf(16),
     color: colors.text,
     marginLeft: spacing.xs,
     flex: 1,
@@ -205,6 +205,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     ...typography.bodySmall,
+    fontSize: rf(11.5),
     color: colors.primaryDark,
     fontWeight: '600',
     marginLeft: 2,
@@ -221,6 +222,7 @@ const styles = StyleSheet.create({
   },
   roleSwitchText: {
     ...typography.caption,
+    fontSize: rf(11.5),
     color: colors.softBlue,
     fontWeight: '700',
   },

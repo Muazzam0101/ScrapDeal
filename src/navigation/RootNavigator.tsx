@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../types';
+import { colors, typography, shadows } from '../theme';
+import { useAuthStore } from '../store/useAuthStore';
+import { useRole } from '../context/RoleContext';
 
 import { RoleSelectionScreen } from '../screens/onboarding/RoleSelectionScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -44,9 +49,58 @@ import { VerifyRecordScreen } from '../screens/common/VerifyRecordScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
+  const { isAuthenticated, role, isInitialized, restoreSession } = useAuthStore();
+  const { setRole: setContextRole } = useRole();
+
+  useEffect(() => {
+    if (!isInitialized) {
+      restoreSession().then((user) => {
+        if (user) {
+          setContextRole(user.role);
+        }
+      });
+    }
+  }, [isInitialized]);
+
+  if (!isInitialized) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <View
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 24,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+            ...shadows.md,
+          }}
+        >
+          <Ionicons name="sync" size={38} color={colors.card} />
+        </View>
+        <Text style={{ ...typography.h1, color: colors.primaryDark, fontWeight: '900' }}>SCRAPDEAL</Text>
+        <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
+      </View>
+    );
+  }
+
+  const initialRoute = isAuthenticated
+    ? role === 'collector'
+      ? 'CollectorRoot'
+      : 'RecyclerRoot'
+    : 'RoleSelection';
+
   return (
     <Stack.Navigator
-      initialRouteName="RoleSelection"
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',

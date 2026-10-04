@@ -9,7 +9,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  shadows,
+  rf,
+  useResponsive,
+  responsiveContainer,
+} from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useLotStore } from '../../store/useLotStore';
@@ -26,6 +35,7 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
   const { t } = useLanguage();
   const { currentUser } = useAuthStore();
   const { availableLots, fetchAvailableLots } = useLotStore();
+  const { horizontalPadding, tabBarBottomPadding } = useResponsive();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -104,13 +114,20 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {/* Recycler Facility Header Banner */}
+        <View style={responsiveContainer}>
+          {/* Recycler Facility Header Banner */}
         <View style={styles.firmCard}>
           <View style={styles.firmTopRow}>
             <View style={styles.firmLogo}>
@@ -197,6 +214,7 @@ export const RecyclerHomeScreen: React.FC<RecyclerHomeScreenProps> = ({ navigati
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -208,9 +226,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.huge,
   },
   firmCard: {
     backgroundColor: colors.card,
@@ -270,11 +286,13 @@ const styles = StyleSheet.create({
   },
   metricNumber: {
     ...typography.h2,
+    fontSize: rf(20),
     color: colors.primaryDark,
     fontWeight: '800',
   },
   metricLabel: {
     ...typography.caption,
+    fontSize: rf(11),
     color: colors.textSecondary,
     marginTop: 4,
     textAlign: 'center',
@@ -305,6 +323,7 @@ const styles = StyleSheet.create({
   },
   quickCardTitle: {
     ...typography.caption,
+    fontSize: rf(11.5),
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',

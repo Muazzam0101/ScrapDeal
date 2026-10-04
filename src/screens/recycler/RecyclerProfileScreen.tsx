@@ -11,7 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  rf,
+  useResponsive,
+  responsiveContainer,
+} from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -28,6 +36,7 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
   const { t } = useLanguage();
   const { switchRole: switchContextRole, setRole: setContextRole } = useRole();
   const { currentUser, switchRole: switchAuthRole, updateProfile, logout } = useAuthStore();
+  const { horizontalPadding, tabBarBottomPadding } = useResponsive();
 
   const recycler = (currentUser?.role === 'recycler' ? currentUser : null) as RecyclerProfile | null;
 
@@ -146,10 +155,17 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Recycler Firm Profile Header */}
+        <View style={responsiveContainer}>
+          {/* Recycler Firm Profile Header */}
         <View style={styles.firmCard}>
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="recycle" size={38} color={colors.primary} />
@@ -341,17 +357,18 @@ export const RecyclerProfileScreen: React.FC<{ navigation: any }> = ({ navigatio
           />
         </View>
 
-        {/* Account Actions / Logout */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('accountActions')}</Text>
-          <PrimaryButton
-            title={t('logout')}
-            icon="log-out-outline"
-            iconPosition="left"
-            variant="danger"
-            onPress={handleLogout}
-            style={{ marginTop: spacing.xs }}
-          />
+          {/* Account Actions / Logout */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>{t('accountActions')}</Text>
+            <PrimaryButton
+              title={t('logout')}
+              icon="log-out-outline"
+              iconPosition="left"
+              variant="danger"
+              onPress={handleLogout}
+              style={{ marginTop: spacing.xs }}
+            />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -364,30 +381,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.huge,
-    gap: spacing.lg,
   },
   firmCard: {
     backgroundColor: colors.card,
     borderRadius: borderRadius.xxl,
-    padding: spacing.xl,
+    padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: colors.primaryPale,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
   firmName: {
-    ...typography.h2,
+    ...typography.h3,
+    fontSize: rf(20),
     color: colors.text,
     textAlign: 'center',
   },
@@ -413,6 +429,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     ...typography.h4,

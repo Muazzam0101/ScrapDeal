@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, UserRole, LanguageCode, CollectorProfile, RecyclerProfile } from '../types';
-import { authService } from '../services/firebase/auth';
+import { authService, SendOtpResult } from '../services/firebase/auth';
 import { userRepository } from '../services/sqlite/repositories/userRepository';
 
 interface AuthState {
@@ -8,11 +9,12 @@ interface AuthState {
   role: UserRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
   verificationId: string | null;
 
   // Actions
-  requestOtp: (phoneNumber: string) => Promise<{ verificationId: string }>;
+  requestOtp: (phoneNumber: string) => Promise<SendOtpResult>;
   verifyOtp: (params: {
     verificationId: string;
     otpCode: string;
@@ -34,15 +36,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   role: null,
   isAuthenticated: false,
   isLoading: false,
+  isInitialized: false,
   error: null,
   verificationId: null,
 
   requestOtp: async (phoneNumber: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { verificationId } = await authService.sendOtp(phoneNumber);
-      set({ verificationId, isLoading: false });
-      return { verificationId };
+      const result = await authService.sendOtp(phoneNumber);
+      set({ verificationId: result.verificationId, isLoading: false });
+      return result;
     } catch (err: any) {
       set({ error: err.message || 'OTP भेजने में विफल', isLoading: false });
       throw err;
@@ -53,12 +56,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const session = await authService.verifyOtp(params);
+      try {
+        await AsyncStorage.setItem('@scrapdeal_active_session_user_id', session.user.id);
+      } catch (storageErr) {
+        console.warn('[AuthStore] Failed to write session to AsyncStorage:', storageErr);
+      }
       set({
         currentUser: session.user,
         role: session.user.role,
         isAuthenticated: true,
         isLoading: false,
         verificationId: null,
+        isInitialized: true,
       });
       return session.user;
     } catch (err: any) {
@@ -76,7 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const defaultPhone = role === 'collector' ? '+919876543210' : '+919876543211';
       const session = await authService.verifyOtp({
         verificationId: `QUICK-${Date.now()}`,
-        otpCode: '123456',
+        otpCode: '000000',
         role,
         name: role === 'collector' ? 'कबाड़ी मित्र' : 'Green Earth Recycling',
         businessName: role === 'recycler' ? 'Green Earth Recycling' : undefined,
@@ -155,33 +164,69 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    try {
+      await AsyncStorage.removeItem('@scrapdeal_active_session_user_id');
+    } catch (e) {
+      console.warn('[AuthStore] Failed to remove session from AsyncStorage:', e);
+    }
     await authService.signOut();
     set({
       currentUser: null,
       role: null,
       isAuthenticated: false,
       error: null,
+      isInitialized: true,
     });
   },
 
   restoreSession: async () => {
     set({ isLoading: true });
     try {
-      const user = await authService.restoreSession();
+      let activeUserId: string | null = null;
+      try {
+        activeUserId = await AsyncStorage.getItem('@scrapdeal_active_session_user_id');
+      } catch (storageErr) {
+        console.warn('[AuthStore] AsyncStorage read error:', storageErr);
+      }
+
+      if (!activeUserId) {
+        set({
+          currentUser: null,
+          role: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+        });
+        return null;
+      }
+
+      const user = await userRepository.getUserById(activeUserId);
       if (user) {
         set({
           currentUser: user,
           role: user.role,
           isAuthenticated: true,
           isLoading: false,
+          isInitialized: true,
         });
         return user;
       }
-      set({ isLoading: false });
+
+      // If user was not found for that id, clear stale session
+      try {
+        await AsyncStorage.removeItem('@scrapdeal_active_session_user_id');
+      } catch (_) {}
+      set({
+        currentUser: null,
+        role: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isInitialized: true,
+      });
       return null;
     } catch (e) {
       console.warn('[AuthStore] Session restore error:', e);
-      set({ isLoading: false });
+      set({ isLoading: false, isInitialized: true });
       return null;
     }
   },

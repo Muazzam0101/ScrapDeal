@@ -11,7 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
+  rf,
+  useResponsive,
+  responsiveContainer,
+} from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useLotStore } from '../../store/useLotStore';
@@ -41,6 +49,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
   const { collectorLots, fetchCollectorLots, isLoading, error } = useLotStore();
   const { acceptOffer } = useDealStore();
   const { rejectOffer } = useOfferStore();
+  const { horizontalPadding, tabBarBottomPadding } = useResponsive();
 
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [refreshing, setRefreshing] = useState(false);
@@ -163,13 +172,20 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {/* Tabs: Active vs Completed */}
+        <View style={responsiveContainer}>
+          {/* Tabs: Active vs Completed */}
         <View style={styles.tabsRow}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'active' && styles.tabActive]}
@@ -417,6 +433,7 @@ export const CollectorDealsScreen: React.FC<CollectorDealsScreenProps> = ({
             )}
           </>
         )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -428,9 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.huge,
   },
   tabsRow: {
     flexDirection: 'row',
@@ -452,6 +467,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...typography.caption,
+    fontSize: rf(12),
     fontWeight: '700',
     color: colors.textSecondary,
   },
